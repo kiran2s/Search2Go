@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Search2Go</string>
+    <string name="search_app_chooser_text">Select Search App</string>
 </resources>
