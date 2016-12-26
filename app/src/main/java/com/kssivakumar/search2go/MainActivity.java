@@ -12,7 +12,6 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.webkit.URLUtil;
 import android.widget.Button;
@@ -27,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
+import com.google.android.youtube.player.YouTubeIntents;
 
 public class MainActivity extends AppCompatActivity
 {
@@ -136,14 +136,25 @@ public class MainActivity extends AppCompatActivity
                     case APP_CHROME:
                         extraSearchIntent.setAction(Intent.ACTION_VIEW);
                         extraSearchIntent.setData(Uri.parse("https://www.google.com/search?q=" + query));
+                        extraSearchIntent.setComponent(new ComponentName(packageName, appName));
                         break;
                     case APP_YOUTUBE:
-                        //extraSearchIntent.setAction(Intent.ACTION_VIEW);
-                        //extraSearchIntent.setData(Uri.parse("https://www.youtube.com/results?search_query=" + query));
+                        extraSearchIntent = YouTubeIntents.createSearchIntent(
+                                getApplicationContext(),
+                                query
+                        );
+                        List<ResolveInfo> youtubeAppInfoList = packageManager.queryIntentActivities(
+                                extraSearchIntent, 0
+                        );
+                        extraSearchIntent.setComponent(
+                                new ComponentName(
+                                        packageName,
+                                        youtubeAppInfoList.get(0).activityInfo.name
+                                )
+                        );
                         break;
                 }
 
-                extraSearchIntent.setComponent(new ComponentName(packageName, appName));
                 intentList.add(
                         new LabeledIntent(
                                 extraSearchIntent,
@@ -155,7 +166,9 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        LabeledIntent[] extraSearchIntents = intentList.toArray(new LabeledIntent[intentList.size()]);
+        LabeledIntent[] extraSearchIntents = intentList.toArray(
+                new LabeledIntent[intentList.size()]
+        );
         appChooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, extraSearchIntents);
         startActivity(appChooserIntent);
     }
