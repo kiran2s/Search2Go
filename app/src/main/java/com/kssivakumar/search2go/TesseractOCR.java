@@ -38,9 +38,6 @@ public final class TesseractOCR
     }
 
     public static String performOCR(Bitmap imageBitmap) {
-        if (mTess == null)
-            throw new NullPointerException();
-
         mTess.setImage(imageBitmap);
         return mTess.getUTF8Text();
     }
