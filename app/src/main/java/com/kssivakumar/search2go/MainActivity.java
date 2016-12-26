@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -17,15 +16,9 @@ import android.webkit.URLUtil;
 import android.widget.Button;
 import android.widget.EditText;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.googlecode.tesseract.android.TessBaseAPI;
 import com.google.android.youtube.player.YouTubeIntents;
 
 public class MainActivity extends AppCompatActivity
@@ -33,14 +26,6 @@ public class MainActivity extends AppCompatActivity
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int IMAGE_CROP = 2;
 
-    private enum SearchApp {
-        APP_NA, APP_SBROWSER, APP_CHROME, APP_YOUTUBE
-    }
-
-    private TessBaseAPI mTess;
-    private String deviceTessPath;
-    private String deviceTessDataFilePath;
-    private String assetPath;
     private EditText searchText;
 
     @Override
@@ -54,16 +39,7 @@ public class MainActivity extends AppCompatActivity
             System.exit(0);
         }
 
-        // Initialize important paths
-        deviceTessPath = getFilesDir() + "/tesseract/";
-        assetPath = "tessdata/eng.traineddata";
-        deviceTessDataFilePath = deviceTessPath + assetPath;
-
-        createTessFilesIfNecessary();
-
-        // Initialize Tesseract API
-        mTess = new TessBaseAPI();
-        mTess.init(deviceTessPath, "eng");
+        TesseractOCR.initialize(getApplicationContext());
 
         searchText = (EditText)findViewById(R.id.searchText);
         final Button newImageButton = (Button)findViewById(R.id.newImageButton);
@@ -121,17 +97,17 @@ public class MainActivity extends AppCompatActivity
             String appName = appInfo.activityInfo.name;
             String packageName = appInfo.activityInfo.packageName;
 
-            SearchApp searchApp = SearchApp.APP_NA;
+            SearchAppLabel searchAppLabel = SearchAppLabel.APP_NA;
             if (packageName.contains("sbrowser"))
-                searchApp = SearchApp.APP_SBROWSER;
+                searchAppLabel = SearchAppLabel.APP_SBROWSER;
             else if (packageName.contains("chrome"))
-                searchApp = SearchApp.APP_CHROME;
+                searchAppLabel = SearchAppLabel.APP_CHROME;
             else if (packageName.contains("youtube"))
-                searchApp = SearchApp.APP_YOUTUBE;
+                searchAppLabel = SearchAppLabel.APP_YOUTUBE;
 
-            if (searchApp != SearchApp.APP_NA) {
+            if (searchAppLabel != SearchAppLabel.APP_NA) {
                 Intent extraSearchIntent = new Intent();
-                switch (searchApp) {
+                switch (searchAppLabel) {
                     case APP_SBROWSER:
                     case APP_CHROME:
                         extraSearchIntent.setAction(Intent.ACTION_VIEW);
@@ -182,48 +158,14 @@ public class MainActivity extends AppCompatActivity
             else if (requestCode == IMAGE_CROP) {
                 Bundle extras = data.getExtras();
                 Bitmap imageBitmap = extras.getParcelable("data");
-                String query = performOCR(imageBitmap);
+                String query = TesseractOCR.performOCR(imageBitmap);
                 searchText.setText(query);
             }
         }
     }
 
-    private String performOCR(Bitmap imageBitmap) {
-        mTess.setImage(imageBitmap);
-        return mTess.getUTF8Text();
-    }
-
     private boolean phoneHasCamera() {
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-    }
-
-    private void createTessFilesIfNecessary() {
-        File dir = new File(deviceTessPath + "tessdata/");
-        if (!dir.exists() && dir.mkdirs())
-            copyTessFile();
-        else if (dir.exists()) {
-            File tessDataFile = new File(deviceTessDataFilePath);
-            if (!tessDataFile.exists())
-                copyTessFile();
-        }
-    }
-
-    private void copyTessFile() {
-        try {
-            AssetManager assetManager = getAssets();
-            InputStream inStream = assetManager.open(assetPath);
-            OutputStream outStream = new FileOutputStream(deviceTessDataFilePath);
-            byte[] buffer = new byte[1024];
-            int len;
-            while ((len = inStream.read(buffer)) >= 0) {
-                outStream.write(buffer, 0, len);
-            }
-            outStream.flush();
-            outStream.close();
-            inStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     /*** Listeners ***/
