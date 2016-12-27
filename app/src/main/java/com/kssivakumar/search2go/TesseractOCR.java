@@ -1,6 +1,5 @@
 package com.kssivakumar.search2go;
 
-import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 
@@ -14,32 +13,34 @@ import java.io.OutputStream;
 
 public final class TesseractOCR
 {
+    private TesseractOCR() {}
+
+    private static AssetManager assetManager;
     private static TessBaseAPI mTess;
     private static String deviceTessPath;
     private static String deviceTessDataFilePath;
     private static String assetPath;
-    private static Context applicationContext;
 
-    private TesseractOCR() {}
+    public static class API {
+        public API(AssetManager am, File filesDir) {
+            assetManager = am;
 
-    public static void initialize(Context context) {
-        applicationContext = context;
+            // Initialize important paths
+            deviceTessPath = filesDir + "/tesseract/";
+            assetPath = "tessdata/eng.traineddata";
+            deviceTessDataFilePath = deviceTessPath + assetPath;
 
-        // Initialize important paths
-        deviceTessPath = applicationContext.getFilesDir() + "/tesseract/";
-        assetPath = "tessdata/eng.traineddata";
-        deviceTessDataFilePath = deviceTessPath + assetPath;
+            createTessFilesIfNecessary();
 
-        createTessFilesIfNecessary();
+            // Initialize Tesseract API
+            mTess = new TessBaseAPI();
+            mTess.init(deviceTessPath, "eng");
+        }
 
-        // Initialize Tesseract API
-        mTess = new TessBaseAPI();
-        mTess.init(deviceTessPath, "eng");
-    }
-
-    public static String performOCR(Bitmap imageBitmap) {
-        mTess.setImage(imageBitmap);
-        return mTess.getUTF8Text();
+        public String performOCR(Bitmap imageBitmap) {
+            mTess.setImage(imageBitmap);
+            return mTess.getUTF8Text();
+        }
     }
 
     private static void createTessFilesIfNecessary() {
@@ -55,7 +56,6 @@ public final class TesseractOCR
 
     private static void copyTessFile() {
         try {
-            AssetManager assetManager = applicationContext.getAssets();
             InputStream inStream = assetManager.open(assetPath);
             OutputStream outStream = new FileOutputStream(deviceTessDataFilePath);
             byte[] buffer = new byte[1024];
@@ -71,3 +71,4 @@ public final class TesseractOCR
         }
     }
 }
+

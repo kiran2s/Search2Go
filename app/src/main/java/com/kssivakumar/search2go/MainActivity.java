@@ -2,6 +2,7 @@ package com.kssivakumar.search2go;
 
 import android.app.SearchManager;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
@@ -26,6 +27,7 @@ public class MainActivity extends AppCompatActivity
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int IMAGE_CROP = 2;
 
+    private TesseractOCR.API tessAPI;
     private EditText searchText;
 
     @Override
@@ -39,7 +41,8 @@ public class MainActivity extends AppCompatActivity
             System.exit(0);
         }
 
-        TesseractOCR.initialize(getApplicationContext());
+        Context context = getApplicationContext();
+        tessAPI = new TesseractOCR.API(context.getAssets(), context.getFilesDir());
 
         searchText = (EditText)findViewById(R.id.searchText);
         final Button newImageButton = (Button)findViewById(R.id.newImageButton);
@@ -56,9 +59,7 @@ public class MainActivity extends AppCompatActivity
             startActivityForResult(imageCaptureIntent, REQUEST_IMAGE_CAPTURE);
     }
 
-    private void dispatchSavedImagesViewer() {
-        return;
-    }
+    private void dispatchSavedImagesViewer() {}
 
     private void dispatchCropper(Uri imageUri) {
         Intent cropImageIntent = new Intent("com.android.camera.action.CROP");
@@ -158,7 +159,7 @@ public class MainActivity extends AppCompatActivity
             else if (requestCode == IMAGE_CROP) {
                 Bundle extras = data.getExtras();
                 Bitmap imageBitmap = extras.getParcelable("data");
-                String query = TesseractOCR.performOCR(imageBitmap);
+                String query = tessAPI.performOCR(imageBitmap);
                 searchText.setText(query);
             }
         }
