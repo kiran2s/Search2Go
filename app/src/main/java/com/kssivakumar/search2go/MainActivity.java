@@ -1,34 +1,45 @@
 package com.kssivakumar.search2go;
 
-import android.app.SearchManager;
-import android.content.ComponentName;
-import android.content.Context;
+import android.Manifest;
 import android.content.Intent;
-import android.content.pm.LabeledIntent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.graphics.Bitmap;
 import android.net.Uri;
-import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
-import android.webkit.URLUtil;
-import android.widget.Button;
-import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.vision.CameraSource;
+import com.google.android.gms.vision.text.TextRecognizer;
 
-import com.google.android.youtube.player.YouTubeIntents;
+import java.io.IOException;
 
-public class MainActivity extends AppCompatActivity
+public class MainActivity
+        extends AppCompatActivity
+        implements CameraTextRecognizerProcessor.Callback
 {
-    private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final int IMAGE_CROP = 2;
+    private static final String TAG = "MainActivity";
 
-    private TesseractOCR.API tessAPI;
-    private EditText searchText;
+    private static final int RC_HANDLE_GMS = 9001;
+    private static final int RC_HANDLE_CAMERA_PERM = 2;
+
+    private static final int RC_IMAGE_CROP = 1;
+
+    private boolean cameraDispatchRequested;
+    private boolean surfaceAvailable;
+
+    private CameraSource cameraSource;
+    private SurfaceView surfaceView;
+    private TextView textDetectedTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,29 +48,134 @@ public class MainActivity extends AppCompatActivity
 
         // Exit app if phone does not have camera
         if (!phoneHasCamera()) {
+            Log.e(TAG, "Device does not have camera");
             finish();
-            System.exit(0);
         }
 
-        Context context = getApplicationContext();
-        tessAPI = new TesseractOCR.API(context.getAssets(), context.getFilesDir());
+        cameraDispatchRequested = false;
+        surfaceAvailable = false;
 
-        searchText = (EditText)findViewById(R.id.searchText);
-        final Button newImageButton = (Button)findViewById(R.id.newImageButton);
-        newImageButton.setOnClickListener(newImageButton_OnClickListener);
-        final Button savedImageButton = (Button)findViewById(R.id.savedImageButton);
-        savedImageButton.setOnClickListener(savedImageButton_OnClickListener);
-        final Button searchButton = (Button)findViewById(R.id.searchButton);
-        searchButton.setOnClickListener(searchButton_onClickListener);
+        surfaceView = (SurfaceView)findViewById(R.id.surfaceView);
+        textDetectedTextView = (TextView)findViewById(R.id.textDetectedTextView);
+
+        surfaceView.getHolder().addCallback(surfaceView_Callback);
+
+        requestCameraPermissionIfNecessary();
+        createCamera();
+
+        final ImageButton takePictureButton = (ImageButton)findViewById(R.id.takePictureButton);
+        takePictureButton.setOnClickListener(takePictureButton_OnClickListener);
+        final ImageButton savedPicturesButton = (ImageButton)findViewById(R.id.savedPicturesButton);
+        savedPicturesButton.setOnClickListener(savedPicturesButton_OnClickListener);
     }
 
-    private void dispatchCamera() {
-        Intent imageCaptureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (imageCaptureIntent.resolveActivity(getPackageManager()) != null)
-            startActivityForResult(imageCaptureIntent, REQUEST_IMAGE_CAPTURE);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        cameraDispatchRequested = true;
+        dispatchCamera();
     }
 
-    private void dispatchSavedImagesViewer() {}
+    @Override
+    protected void onPause() {
+        super.onPause();
+        cameraSource.stop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        cameraSource.release();
+        cameraSource = null;
+    }
+
+    private void requestCameraPermissionIfNecessary() {
+        int resultCode = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
+        if (resultCode == PackageManager.PERMISSION_GRANTED)
+            return;
+
+        Log.w(TAG, "Permission to handle camera not yet granted. Permission requested.");
+        final String[] permissions = new String[] { Manifest.permission.CAMERA };
+        if (!ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.CAMERA
+        )) {
+            ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode != RC_HANDLE_CAMERA_PERM) {
+            Log.d(TAG, "Got unexpected permission result: " + requestCode);
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            return;
+        }
+
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "Permission to handle camera granted. Initializing camera.");
+            createCamera();
+        }
+        else {
+            int resultsLength = grantResults.length;
+            Log.e(  TAG, "Permission to handle camera not granted. Results length = " +
+                    resultsLength + ". Results code = " +
+                    (resultsLength > 0 ? grantResults[0] : "(empty)"));
+            finish();
+        }
+    }
+
+    private void createCamera() {
+        TextRecognizer textRecognizer = new TextRecognizer.Builder(getApplicationContext()).build();
+        textRecognizer.setProcessor(new CameraTextRecognizerProcessor<>(this));
+
+        if (!textRecognizer.isOperational()) {
+            Log.w(TAG, "Text recognition dependencies are not yet available.");
+            IntentFilter lowStorageFilter = new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW);
+            boolean deviceHasLowStorage = registerReceiver(null, lowStorageFilter) != null;
+
+            if (deviceHasLowStorage) {
+                Log.w(TAG, "Device has low storage.");
+                finish();
+            }
+        }
+
+        cameraSource =
+                new CameraSource.Builder(getApplicationContext(), textRecognizer)
+                        .setAutoFocusEnabled(true)
+                        .setFacing(CameraSource.CAMERA_FACING_BACK)
+                        .setRequestedFps(2.0f)
+                        //.setRequestedPreviewSize(1280, 1024)
+                        .build();
+    }
+
+    private void dispatchCamera() throws SecurityException {
+        int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(
+                getApplicationContext());
+        if (resultCode != ConnectionResult.SUCCESS) {
+            Log.e(TAG, "Google Play services unavailable.");
+            GoogleApiAvailability.getInstance().getErrorDialog(
+                    this,
+                    resultCode,
+                    RC_HANDLE_GMS
+            ).show();
+        }
+
+        if (cameraDispatchRequested && surfaceAvailable) {
+            try {
+                cameraSource.start(surfaceView.getHolder());
+            } catch (IOException e) {
+                finish();
+            }
+            cameraDispatchRequested = false;
+        }
+    }
+
+    private void takePicture() {}
+
+    private void dispatchSavedPicturesViewer() {}
 
     private void dispatchCropper(Uri imageUri) {
         Intent cropImageIntent = new Intent("com.android.camera.action.CROP");
@@ -67,124 +183,54 @@ public class MainActivity extends AppCompatActivity
         cropImageIntent.putExtra("crop", "true");
         cropImageIntent.putExtra("return-data", true);
         if (cropImageIntent.resolveActivity(getPackageManager()) != null)
-            startActivityForResult(cropImageIntent, IMAGE_CROP);
-    }
-
-    private void dispatchSearch() {
-        String query = searchText.getText().toString();
-        Intent searchIntent;
-        Intent appChooserIntent;
-        String searchAppChooserText = getResources().getString(R.string.search_app_chooser_text);
-
-        if (URLUtil.isValidUrl(query)) {
-            searchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(query));
-            appChooserIntent = Intent.createChooser(searchIntent, searchAppChooserText);
-            startActivity(appChooserIntent);
-            return;
-        }
-
-        searchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
-        searchIntent.putExtra(SearchManager.QUERY, query);
-        appChooserIntent = Intent.createChooser(searchIntent, searchAppChooserText);
-
-        PackageManager packageManager = getPackageManager();
-        Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
-        mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        List<ResolveInfo> appInfoList = packageManager.queryIntentActivities(mainIntent, 0);
-        List<LabeledIntent> intentList = new ArrayList<>();
-
-        for (int i = 0; i < appInfoList.size(); i++) {
-            ResolveInfo appInfo = appInfoList.get(i);
-            String appName = appInfo.activityInfo.name;
-            String packageName = appInfo.activityInfo.packageName;
-
-            SearchAppLabel searchAppLabel = SearchAppLabel.APP_NA;
-            if (packageName.contains("sbrowser"))
-                searchAppLabel = SearchAppLabel.APP_SBROWSER;
-            else if (packageName.contains("chrome"))
-                searchAppLabel = SearchAppLabel.APP_CHROME;
-            else if (packageName.contains("youtube"))
-                searchAppLabel = SearchAppLabel.APP_YOUTUBE;
-
-            if (searchAppLabel != SearchAppLabel.APP_NA) {
-                Intent extraSearchIntent = new Intent();
-                switch (searchAppLabel) {
-                    case APP_SBROWSER:
-                    case APP_CHROME:
-                        extraSearchIntent.setAction(Intent.ACTION_VIEW);
-                        extraSearchIntent.setData(Uri.parse("https://www.google.com/search?q=" + query));
-                        extraSearchIntent.setComponent(new ComponentName(packageName, appName));
-                        break;
-                    case APP_YOUTUBE:
-                        extraSearchIntent = YouTubeIntents.createSearchIntent(
-                                getApplicationContext(),
-                                query
-                        );
-                        List<ResolveInfo> youtubeAppInfoList = packageManager.queryIntentActivities(
-                                extraSearchIntent, 0
-                        );
-                        extraSearchIntent.setComponent(
-                                new ComponentName(
-                                        packageName,
-                                        youtubeAppInfoList.get(0).activityInfo.name
-                                )
-                        );
-                        break;
-                }
-
-                intentList.add(
-                        new LabeledIntent(
-                                extraSearchIntent,
-                                packageName,
-                                appInfo.loadLabel(packageManager),
-                                appInfo.icon
-                        )
-                );
-            }
-        }
-
-        LabeledIntent[] extraSearchIntents = intentList.toArray(
-                new LabeledIntent[intentList.size()]
-        );
-        appChooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, extraSearchIntents);
-        startActivity(appChooserIntent);
+            startActivityForResult(cropImageIntent, RC_IMAGE_CROP);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
-            if (requestCode == REQUEST_IMAGE_CAPTURE) {
-                dispatchCropper(data.getData());
-            }
-            else if (requestCode == IMAGE_CROP) {
-                Bundle extras = data.getExtras();
-                Bitmap imageBitmap = extras.getParcelable("data");
-                String query = tessAPI.performOCR(imageBitmap);
-                searchText.setText(query);
-            }
+            if (requestCode == RC_IMAGE_CROP) {}
         }
+    }
+
+    @Override
+    public void textDetectionUpdated(boolean textDetected) {
+        if (textDetected)
+            textDetectedTextView.setText(R.string.text_detected_text);
+        else
+            textDetectedTextView.setText("");
     }
 
     private boolean phoneHasCamera() {
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     }
 
-    /*** Listeners ***/
-    private View.OnClickListener newImageButton_OnClickListener = new View.OnClickListener() {
+    /*** Listeners and Callbacks ***/
+    private View.OnClickListener takePictureButton_OnClickListener = new View.OnClickListener() {
         public void onClick(View view) {
+            takePicture();
+        }
+    };
+
+    private View.OnClickListener savedPicturesButton_OnClickListener = new View.OnClickListener() {
+        public void onClick(View view) {
+            dispatchSavedPicturesViewer();
+        }
+    };
+
+    private SurfaceHolder.Callback surfaceView_Callback = new SurfaceHolder.Callback() {
+        @Override
+        public void surfaceCreated(SurfaceHolder surfaceHolder) {
+            surfaceAvailable = true;
             dispatchCamera();
         }
-    };
 
-    private View.OnClickListener savedImageButton_OnClickListener = new View.OnClickListener() {
-        public void onClick(View view) {
-            dispatchSavedImagesViewer();
-        }
-    };
+        @Override
+        public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {}
 
-    private View.OnClickListener searchButton_onClickListener = new View.OnClickListener() {
-        public void onClick(View view) {
-            dispatchSearch();
+        @Override
+        public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+            surfaceAvailable = false;
         }
     };
 }
