@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -147,7 +149,7 @@ public class MainActivity
                         .setAutoFocusEnabled(true)
                         .setFacing(CameraSource.CAMERA_FACING_BACK)
                         .setRequestedFps(2.0f)
-                        //.setRequestedPreviewSize(1280, 1024)
+                        .setRequestedPreviewSize(1280, 1024)
                         .build();
     }
 
@@ -173,7 +175,27 @@ public class MainActivity
         }
     }
 
-    private void takePicture() {}
+    private void takePicture() {
+        cameraSource.takePicture(
+                null,
+                new CameraSource.PictureCallback() {
+                    @Override
+                    public void onPictureTaken(byte[] bytes) {
+                        cameraSource.stop();
+                        Uri pictureUri = PictureStorage.saveToExternalPublicStorage(bytes);
+                        dispatchCropper(pictureUri);
+                        /*
+                        Intent cropActivityIntent = new Intent(
+                                getApplicationContext(),
+                                CropActivity.class
+                        );
+                        cropActivityIntent.setData(pictureUri);
+                        startActivity(cropActivityIntent);
+                        */
+                    }
+                }
+        );
+    }
 
     private void dispatchSavedPicturesViewer() {}
 
@@ -189,7 +211,15 @@ public class MainActivity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
-            if (requestCode == RC_IMAGE_CROP) {}
+            if (requestCode == RC_IMAGE_CROP) {
+                Bitmap croppedPictureBitmap = data.getExtras().getParcelable("data");
+                Uri croppedPictureUri =
+                        PictureStorage.saveToExternalPublicStorage(croppedPictureBitmap);
+
+                Intent searchActivityIntent = new Intent(getApplication(), SearchActivity.class);
+                searchActivityIntent.setData(croppedPictureUri);
+                startActivity(searchActivityIntent);
+            }
         }
     }
 

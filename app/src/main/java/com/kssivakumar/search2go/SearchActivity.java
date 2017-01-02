@@ -2,7 +2,6 @@ package com.kssivakumar.search2go;
 
 import android.app.SearchManager;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
@@ -12,63 +11,65 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
+import android.util.SparseArray;
 import android.view.View;
 import android.webkit.URLUtil;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 
+import com.google.android.gms.vision.Frame;
+import com.google.android.gms.vision.text.TextBlock;
+import com.google.android.gms.vision.text.TextRecognizer;
 import com.google.android.youtube.player.YouTubeIntents;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SearchActivity extends AppCompatActivity
 {
-/*
-    private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final int IMAGE_CROP = 2;
+    private static final String TAG = "SearchActivity";
 
-    private TesseractOCR.API tessAPI;
+    private ImageView imageView;
     private EditText searchText;
+    private Button searchButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
 
-        // Exit app if phone does not have camera
-        if (!phoneHasCamera()) {
-            finish();
-            System.exit(0);
-        }
-
-        Context context = getApplicationContext();
-        tessAPI = new TesseractOCR.API(context.getAssets(), context.getFilesDir());
-
+        imageView = (ImageView)findViewById(R.id.imageView);
         searchText = (EditText)findViewById(R.id.searchText);
-        final Button newImageButton = (Button)findViewById(R.id.newImageButton);
-        newImageButton.setOnClickListener(newImageButton_OnClickListener);
-        final Button savedImageButton = (Button)findViewById(R.id.savedImageButton);
-        savedImageButton.setOnClickListener(savedImageButton_OnClickListener);
-        final Button searchButton = (Button)findViewById(R.id.searchButton);
+        searchButton = (Button)findViewById(R.id.searchButton);
+
         searchButton.setOnClickListener(searchButton_onClickListener);
-    }
 
-    private void dispatchCamera() {
-        Intent imageCaptureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (imageCaptureIntent.resolveActivity(getPackageManager()) != null)
-            startActivityForResult(imageCaptureIntent, REQUEST_IMAGE_CAPTURE);
-    }
+        Uri croppedPictureUri = getIntent().getData();
+        Bitmap croppedPictureBitmap = null;
+        try {
+            croppedPictureBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), croppedPictureUri);
+        } catch (IOException e) {
+            Log.e(TAG, "Could not load bitmap from file.");
+        }
+        imageView.setImageBitmap(croppedPictureBitmap);
 
-    private void dispatchSavedImagesViewer() {}
+        Frame croppedPictureFrame = new Frame.Builder().setBitmap(croppedPictureBitmap).build();
+        TextRecognizer textRecognizer = new TextRecognizer.Builder(getApplicationContext()).build();
+        SparseArray<TextBlock> textBlocks = textRecognizer.detect(croppedPictureFrame);
 
-    private void dispatchCropper(Uri imageUri) {
-        Intent cropImageIntent = new Intent("com.android.camera.action.CROP");
-        cropImageIntent.setDataAndType(imageUri, "image/*");
-        cropImageIntent.putExtra("crop", "true");
-        cropImageIntent.putExtra("return-data", true);
-        if (cropImageIntent.resolveActivity(getPackageManager()) != null)
-            startActivityForResult(cropImageIntent, IMAGE_CROP);
+        Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
+
+        for (int i = 0; i < textBlocks.size(); i++) {
+            TextBlock textBlock = textBlocks.valueAt(i);
+            if (textBlock != null && textBlock.getValue() != null) {
+                searchText.setText(textBlock.getValue());
+                Log.d(TAG, textBlock.getValue());
+                break;
+            }
+        }
     }
 
     private void dispatchSearch() {
@@ -151,42 +152,10 @@ public class SearchActivity extends AppCompatActivity
         startActivity(appChooserIntent);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            if (requestCode == REQUEST_IMAGE_CAPTURE) {
-                dispatchCropper(data.getData());
-            }
-            else if (requestCode == IMAGE_CROP) {
-                Bundle extras = data.getExtras();
-                Bitmap imageBitmap = extras.getParcelable("data");
-                String query = tessAPI.performOCR(imageBitmap);
-                searchText.setText(query);
-            }
-        }
-    }
-
-    private boolean phoneHasCamera() {
-        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-    }
-
     // Listeners
-    private View.OnClickListener newImageButton_OnClickListener = new View.OnClickListener() {
-        public void onClick(View view) {
-            dispatchCamera();
-        }
-    };
-
-    private View.OnClickListener savedImageButton_OnClickListener = new View.OnClickListener() {
-        public void onClick(View view) {
-            dispatchSavedImagesViewer();
-        }
-    };
-
     private View.OnClickListener searchButton_onClickListener = new View.OnClickListener() {
         public void onClick(View view) {
             dispatchSearch();
         }
     };
-*/
 }
