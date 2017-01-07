@@ -29,6 +29,16 @@
                 android:textSize="24sp"
                 android:layout_alignParentBottom="true"
                 android:layout_centerHorizontal="true" />
+
+            <com.kssivakumar.search2go.CropView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:rectX="230"
+                app:rectY="300"
+                app:rectHeight="300"
+                app:rectWidth="300"
+                android:id="@+id/cropView" />
+
         </RelativeLayout>
     </FrameLayout>
 

@@ -62,12 +62,16 @@ public class SearchActivity extends AppCompatActivity
 
         Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
 
+        boolean textSet = false;
+
         for (int i = 0; i < textBlocks.size(); i++) {
             TextBlock textBlock = textBlocks.valueAt(i);
             if (textBlock != null && textBlock.getValue() != null) {
-                searchText.setText(textBlock.getValue());
+                if (!textSet) {
+                    searchText.setText(textBlock.getValue());
+                    textSet = true;
+                }
                 Log.d(TAG, textBlock.getValue());
-                break;
             }
         }
     }

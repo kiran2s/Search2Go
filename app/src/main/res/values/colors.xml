@@ -4,4 +4,6 @@
     <color name="colorPrimaryDark">#512da8</color>
     <color name="colorAccent">#00bfa5</color>
     <color name="colorTextDetected">#7fff00</color>
+    <color name="colorCropRect">#33b5e5</color>
+    <color name="colorCropRect2">#673ab7</color>
 </resources>

@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.hardware.Camera;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -24,6 +24,7 @@ import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.text.TextRecognizer;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 
 public class MainActivity
         extends AppCompatActivity
@@ -183,15 +184,13 @@ public class MainActivity
                     public void onPictureTaken(byte[] bytes) {
                         cameraSource.stop();
                         Uri pictureUri = PictureStorage.saveToExternalPublicStorage(bytes);
-                        dispatchCropper(pictureUri);
-                        /*
+                        //dispatchCropper(pictureUri);
                         Intent cropActivityIntent = new Intent(
                                 getApplicationContext(),
                                 CropActivity.class
                         );
                         cropActivityIntent.setData(pictureUri);
                         startActivity(cropActivityIntent);
-                        */
                     }
                 }
         );
@@ -206,6 +205,26 @@ public class MainActivity
         cropImageIntent.putExtra("return-data", true);
         if (cropImageIntent.resolveActivity(getPackageManager()) != null)
             startActivityForResult(cropImageIntent, RC_IMAGE_CROP);
+    }
+
+    private void focusCamera() {
+        Field[] cameraSourceDeclaredFields = CameraSource.class.getDeclaredFields();
+        for (Field field : cameraSourceDeclaredFields) {
+            if (field.getType() == Camera.class) {
+                field.setAccessible(true);
+                try {
+                    Camera camera = (Camera)field.get(cameraSource);
+                    if (camera != null) {
+                        Camera.Parameters cameraParams = camera.getParameters();
+                        cameraParams.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+                        camera.setParameters(cameraParams);
+                    }
+                } catch (IllegalAccessException e) {
+                    Log.d(TAG, "Cannot access camera in cameraSource.");
+                }
+                break;
+            }
+        }
     }
 
     @Override
@@ -247,6 +266,15 @@ public class MainActivity
             dispatchSavedPicturesViewer();
         }
     };
+
+    /*
+    private View.OnClickListener surfaceView_OnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            focusCamera();
+        }
+    };
+    */
 
     private SurfaceHolder.Callback surfaceView_Callback = new SurfaceHolder.Callback() {
         @Override

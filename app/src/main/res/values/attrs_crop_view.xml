@@ -1,0 +1,13 @@
+<resources>
+    <declare-styleable name="CropView">
+        <attr name="rectX" format="integer" />
+        <attr name="rectY" format="integer" />
+        <attr name="rectWidth" format="integer" />
+        <attr name="rectHeight" format="integer" />
+        <attr name="rectBorderWidth" format="integer" />
+        <attr name="rectColor" format="color" />
+        <attr name="circleRadius" format="integer" />
+        <attr name="circleColor" format="color" />
+        <attr name="rectFrameAlpha" format="integer" />
+    </declare-styleable>
+</resources>
