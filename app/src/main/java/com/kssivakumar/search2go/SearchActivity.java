@@ -51,7 +51,8 @@ public class SearchActivity extends AppCompatActivity
 
         searchButton.setOnClickListener(searchButton_onClickListener);
 
-        Uri croppedPictureUri = getIntent().getData();
+        Intent intent = getIntent();
+        Uri croppedPictureUri = intent.getData();
         Bitmap croppedPictureBitmap = null;
         try {
             croppedPictureBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), croppedPictureUri);
@@ -60,14 +61,16 @@ public class SearchActivity extends AppCompatActivity
         }
         imageView.setImageBitmap(croppedPictureBitmap);
 
-        Frame croppedPictureFrame = new Frame.Builder().setBitmap(croppedPictureBitmap).build();
-        TextRecognizer textRecognizer = new TextRecognizer.Builder(getApplicationContext()).build();
-        SparseArray<TextBlock> textBlocks = textRecognizer.detect(croppedPictureFrame);
+        Bundle extras = intent.getExtras();
+        if (extras == null)
+            return;
+
+        int activityID = extras.getInt(CropActivity.EXTRA_ID);
+        SparseArray<TextBlock> textBlocks = CropActivity.getDetectedTextBlocks(activityID);
 
         Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
 
         boolean textSet = false;
-
         for (int i = 0; i < textBlocks.size(); i++) {
             TextBlock textBlock = textBlocks.valueAt(i);
             if (textBlock != null && textBlock.getValue() != null) {

@@ -1,5 +1,6 @@
 package com.kssivakumar.search2go;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
@@ -20,16 +21,31 @@ import com.google.android.gms.vision.text.TextBlock;
 import com.google.android.gms.vision.text.TextRecognizer;
 
 import java.io.IOException;
+import java.util.Hashtable;
 
-public class CropActivity extends AppCompatActivity implements CropView.OnCropperAdjustedListener
+public class CropActivity extends AppCompatActivity
 {
     private static final String TAG = "CropActivity";
+
+    protected static final String EXTRA_ID = "ID";
+    private static int numInstances = 0;
+    private static Hashtable<Integer, SparseArray<TextBlock>> textDetectionsHashtable =
+            new Hashtable<>(1);
+    private final int ID;
+    protected static SparseArray<TextBlock> getDetectedTextBlocks(int ID) {
+        return textDetectionsHashtable.get(ID);
+    }
 
     private TextRecognizer textRecognizer;
     private ImageView imageView;
     private Bitmap imageViewBitmap;
     private CropView cropView;
     private TextView textView;
+
+    protected CropActivity() {
+        ID = numInstances;
+        numInstances++;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -103,30 +119,22 @@ public class CropActivity extends AppCompatActivity implements CropView.OnCroppe
 
         imageView.setImageBitmap(imageViewBitmap);
 
-        Button doneButton = (Button)findViewById(R.id.doneButton);
-        doneButton.setOnClickListener(doneButton_OnClickListener);
-
         textRecognizer = new TextRecognizer.Builder(getApplicationContext()).build();
 
         cropView = (CropView)findViewById(R.id.cropView);
-        cropView.setOnCropperAdjustedListener(this);
+        cropView.setOnCropperAdjustedListener(cropView_OnCropperAdjustedListener);
 
         textView = (TextView)findViewById(R.id.textView);
+
+        Button doneButton = (Button)findViewById(R.id.doneButton);
+        doneButton.setOnClickListener(doneButton_OnClickListener);
     }
 
-    private View.OnClickListener doneButton_OnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            Bitmap croppedBitmap = cropPicture();
-            Uri croppedPictureUri = PictureStorage.saveToExternalPublicStorage(croppedBitmap);
-            Intent searchActivityIntent = new Intent(
-                    getApplicationContext(),
-                    SearchActivity.class
-            );
-            searchActivityIntent.setData(croppedPictureUri);
-            startActivity(searchActivityIntent);
-        }
-    };
+    @Override
+    protected void onDestroy() {
+        textDetectionsHashtable.remove(ID);
+        super.onDestroy();
+    }
 
     private Bitmap cropPicture() {
         int bitmapWidth = imageViewBitmap.getWidth();
@@ -152,15 +160,33 @@ public class CropActivity extends AppCompatActivity implements CropView.OnCroppe
         );
     }
 
-    @Override
-    public void onCropperAdjusted() {
-        Bitmap croppedBitmap = cropPicture();
-        Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
-        final SparseArray<TextBlock> textBlockDetections = textRecognizer.detect(croppedFrame);
+    private View.OnClickListener doneButton_OnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            Context context = getApplicationContext();
+            Bitmap croppedBitmap = cropPicture();
+            Uri croppedPictureUri = PictureStorage.saveToExternalPublicStorage(croppedBitmap);
+            Intent searchActivityIntent = new Intent(context, SearchActivity.class);
+            searchActivityIntent.setData(croppedPictureUri);
+            searchActivityIntent.putExtra(EXTRA_ID, ID);
+            startActivity(searchActivityIntent);
+        }
+    };
 
-        if (textBlockDetections.size() > 0)
-            textView.setText(textBlockDetections.valueAt(0).getValue());
-        else
-            textView.setText("");
-    }
+    private CropView.OnCropperAdjustedListener cropView_OnCropperAdjustedListener =
+            new CropView.OnCropperAdjustedListener() {
+                @Override
+                public void onCropperAdjusted() {
+                    Bitmap croppedBitmap = cropPicture();
+                    Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
+                    final SparseArray<TextBlock> textBlockDetections =
+                            textRecognizer.detect(croppedFrame);
+                    textDetectionsHashtable.put(ID, textBlockDetections);
+
+                    if (textBlockDetections.size() > 0)
+                        textView.setText(textBlockDetections.valueAt(0).getValue());
+                    else
+                        textView.setText("");
+                }
+            };
 }
