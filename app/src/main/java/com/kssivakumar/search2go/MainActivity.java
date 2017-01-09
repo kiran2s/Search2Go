@@ -15,6 +15,7 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -69,7 +70,9 @@ public class MainActivity
         final ImageButton takePictureButton = (ImageButton)findViewById(R.id.takePictureButton);
         takePictureButton.setOnClickListener(takePictureButton_OnClickListener);
         final ImageButton savedPicturesButton = (ImageButton)findViewById(R.id.savedPicturesButton);
-        savedPicturesButton.setOnClickListener(savedPicturesButton_OnClickListener);
+        ViewGroup vg = (ViewGroup)savedPicturesButton.getParent();
+        vg.removeView(savedPicturesButton);
+        //savedPicturesButton.setOnClickListener(savedPicturesButton_OnClickListener);
     }
 
     @Override

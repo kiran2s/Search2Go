@@ -36,6 +36,10 @@ public class SearchActivity extends AppCompatActivity
     private EditText searchText;
     private Button searchButton;
 
+    private enum SearchAppLabel {
+        APP_NA, APP_SBROWSER, APP_CHROME, APP_YOUTUBE
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

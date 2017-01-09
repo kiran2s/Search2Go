@@ -121,7 +121,6 @@ public class CropView extends View
         rectColor = ResourcesCompat.getColor(getResources(), R.color.colorCropRect2, null);
         circleColor = ResourcesCompat.getColor(getResources(), R.color.colorCropRect, null);
 
-        // Load attributes
         final TypedArray styledAttributes = getContext().obtainStyledAttributes(
                 attrs, R.styleable.CropView, defStyle, 0);
 
@@ -184,20 +183,6 @@ public class CropView extends View
         canvas.drawCircle(circle1Pos.x, circle1Pos.y, circleRadius, circlePaint);
         canvas.drawCircle(circle2Pos.x, circle2Pos.y, circleRadius, circlePaint);
     }
-
-    /*
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        for (int pointerIndex = 0; pointerIndex < event.getPointerCount(); pointerIndex++) {
-            float touchX = event.getX(pointerIndex);
-            float touchY = event.getY(pointerIndex);
-            updateRect(touchX, touchY);
-        }
-
-        invalidateCropper();
-        invalidate();
-    }
-    */
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -309,40 +294,6 @@ public class CropView extends View
         invalidateCropper();
         invalidate();
     }
-
-    /*
-    private void updateRect(float touchX, float touchY) {
-        if (    isPointInCircle(touchX, touchY, circle1Pos.x, circle1Pos.y,
-                CIRCLE_TOUCH_FACTOR * circleRadius) ) {
-            int touchXRounded = Math.round(touchX);
-            rectWidth += rectX - touchXRounded;
-            if (rectWidth >= circleRadius)
-                rectX = touchXRounded;
-            rectHeight = Math.round(touchY) - rectY;
-        }
-        else if (   isPointInCircle(touchX, touchY, circle2Pos.x, circle2Pos.y,
-                CIRCLE_TOUCH_FACTOR * circleRadius) ) {
-            int touchYRounded = Math.round(touchY);
-            if (touchYRounded >= 0) {
-                rectHeight += rectY - touchYRounded;
-                if (rectHeight >= circleRadius)
-                    rectY = touchYRounded;
-                rectWidth = Math.round(touchX) - rectX;
-            }
-        }
-
-
-        if (rectWidth < circleRadius)
-            rectWidth = circleRadius;
-        if (rectHeight < circleRadius)
-            rectHeight = circleRadius;
-        if (rectY < 0)
-            rectY = 0;
-        int viewHeight = getHeight();
-        if (rectY + rectHeight > viewHeight)
-            rectHeight = viewHeight - rectY;
-    }
-    */
 
     private TouchClassification determineTouchClassification(PointF touchPoint) {
         if (isPointInCircle(touchPoint, circle1Pos, CIRCLE_TOUCH_FACTOR * circleRadius))
