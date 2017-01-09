@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorPrimary">
 
     <ImageView
         android:id="@+id/imageView"
@@ -15,12 +16,13 @@
         android:text="Search"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/searchButton" />
+        android:id="@+id/searchButton"
+        android:textColor="@color/colorPrimary" />
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/background_light">
+        android:background="@color/colorPrimary">
 
         <EditText
             android:layout_width="wrap_content"
@@ -29,7 +31,8 @@
             android:ems="10"
             android:id="@+id/searchText"
             android:layout_centerVertical="true"
-            android:layout_centerHorizontal="true" />
+            android:layout_centerHorizontal="true"
+            android:textColor="@android:color/white" />
     </RelativeLayout>
 
 </LinearLayout>

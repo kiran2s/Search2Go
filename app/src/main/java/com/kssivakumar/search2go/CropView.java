@@ -13,11 +13,18 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.Hashtable;
 
 public class CropView extends View
 {
     private final static String TAG = "CropView";
+
+    public interface OnCropperAdjustedListener {
+        void onCropperAdjusted();
+    }
+
+    private ArrayList<OnCropperAdjustedListener> listeners = new ArrayList<>();
 
     private boolean isInitialDraw = true;
 
@@ -54,7 +61,7 @@ public class CropView extends View
         private Rect[] frame = new Rect[NUM_RECTS];
         private boolean isSet = false;
 
-        public RectFrame(Paint paint, int viewWidth, int viewHeight) {
+        public RectFrame(Paint paint) {
             this.paint = paint;
             for (int i = 0; i < NUM_RECTS; i++)
                 frame[i] = new Rect();
@@ -145,7 +152,7 @@ public class CropView extends View
 
         Paint rectFramePaint = new Paint();
         rectFramePaint.setColor(Color.argb(rectFrameAlpha, 0, 0, 0));
-        rectFrame = new RectFrame(rectFramePaint, getWidth(), getHeight());
+        rectFrame = new RectFrame(rectFramePaint);
 
         circlePaint = new Paint();
         circlePaint.setColor(circleColor);
@@ -184,6 +191,10 @@ public class CropView extends View
         canvas.drawCircle(circle2Pos.x, circle2Pos.y, circleRadius, circlePaint);
     }
 
+    public void setOnCropperAdjustedListener(OnCropperAdjustedListener listener) {
+        listeners.add(listener);
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         int pointerIndex = event.getActionIndex();
@@ -218,7 +229,12 @@ public class CropView extends View
                 multiTouchData.remove(pointerID);
                 break;
             }
-            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_UP: {
+                for (OnCropperAdjustedListener listener : listeners)
+                    listener.onCropperAdjusted();
+                multiTouchData.clear();
+                break;
+            }
             case MotionEvent.ACTION_CANCEL: {
                 multiTouchData.clear();
                 break;
@@ -242,7 +258,6 @@ public class CropView extends View
 
                 if (touchClassification == TouchClassification.IN_CIRCLE1) {
                     PointF newCirclePos = translatePoint(circle1Pos, differenceVector);
-
                     if (isPointInView(newCirclePos)) {
                         newCircleX = Math.round(newCirclePos.x);
                         newCircleY = Math.round(newCirclePos.y);
@@ -254,7 +269,6 @@ public class CropView extends View
                 }
                 else {
                     PointF newCirclePos = translatePoint(circle2Pos, differenceVector);
-
                     if (isPointInView(newCirclePos)) {
                         newCircleX = Math.round(newCirclePos.x);
                         newCircleY = Math.round(newCirclePos.y);
@@ -274,23 +288,17 @@ public class CropView extends View
                     rectY = prevRectY + prevRectHeight - rectHeight;
                 }
 
-                if (rectX < 0)
-                    rectX = 0;
-                if (rectY < 0)
-                    rectY = 0;
-                int viewWidth = getWidth();
-                if (rectX + rectWidth > viewWidth)
-                    rectWidth = viewWidth - rectX;
-                int viewHeight = getHeight();
-                if (rectY + rectHeight > viewHeight)
-                    rectHeight = viewHeight - rectY;
-
                 break;
             }
-            case IN_RECT:
+            case IN_RECT: {
+                PointF newRectPos = translatePoint(new PointF(rectX, rectY), differenceVector);
+                rectX = Math.round(newRectPos.x);
+                rectY = Math.round(newRectPos.y);
                 break;
+            }
         }
 
+        performCollisionDetection(touchClassification);
         invalidateCropper();
         invalidate();
     }
@@ -310,10 +318,6 @@ public class CropView extends View
         return calculateDifferenceVector(point, circlePos).length() < radius;
     }
 
-    private boolean isPointInCircle(float px, float py, float cx, float cy, float radius) {
-        return (Math.pow(px - cx, 2) + Math.pow(py - cy, 2)) < Math.pow(radius, 2);
-    }
-
     private boolean isPointInRect(PointF point) {
         float px = point.x;
         float py = point.y;
@@ -330,6 +334,33 @@ public class CropView extends View
 
     private PointF translatePoint(PointF point, PointF vector) {
         return new PointF(point.x + vector.x, point.y + vector.y);
+    }
+
+    private void performCollisionDetection(TouchClassification touchClassification) {
+        if (rectX < 0)
+            rectX = 0;
+        if (rectY < 0)
+            rectY = 0;
+
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        switch (touchClassification) {
+            case IN_CIRCLE1:
+            case IN_CIRCLE2: {
+                if (rectX + rectWidth > viewWidth)
+                    rectWidth = viewWidth - rectX;
+                if (rectY + rectHeight > viewHeight)
+                    rectHeight = viewHeight - rectY;
+                break;
+            }
+            case IN_RECT: {
+                if (rectX + rectWidth > viewWidth)
+                    rectX = viewWidth - rectWidth;
+                if (rectY + rectHeight > viewHeight)
+                    rectY = viewHeight - rectHeight;
+                break;
+            }
+        }
     }
 
     /*** Getters and Setters ***/
