@@ -49,10 +49,17 @@
         android:layout_weight="0">
 
         <Button
-            android:text="Done"
+            android:text="Search"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/doneButton"
+            android:id="@+id/searchButton"
+            android:layout_weight="1" />
+
+        <Button
+            android:text="Advanced Search"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/advancedSearchButton"
             android:layout_weight="1" />
 
     </LinearLayout>

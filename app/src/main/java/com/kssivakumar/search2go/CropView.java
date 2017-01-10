@@ -9,7 +9,6 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.support.v4.content.res.ResourcesCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -20,11 +19,16 @@ public class CropView extends View
 {
     private final static String TAG = "CropView";
 
+    public interface OnInitialDrawListener {
+        void onInitialDraw();
+    }
+
     public interface OnCropperAdjustedListener {
         void onCropperAdjusted();
     }
 
-    private ArrayList<OnCropperAdjustedListener> listeners = new ArrayList<>();
+    private ArrayList<OnInitialDrawListener> onInitialDrawListeners = new ArrayList<>(1);
+    private ArrayList<OnCropperAdjustedListener> onCropperAdjustedListeners = new ArrayList<>(1);
 
     private boolean isInitialDraw = true;
 
@@ -165,6 +169,7 @@ public class CropView extends View
     private void initRectDimensions() {
         int viewWidth = getWidth();
         int viewHeight = getHeight();
+
         rectX = viewWidth / 4;
         rectWidth = rectHeight = viewWidth / 2;
         rectY = (viewHeight - rectHeight) / 2;
@@ -183,6 +188,8 @@ public class CropView extends View
         if (isInitialDraw) {
             initRectDimensions();
             invalidateCropper();
+            for (OnInitialDrawListener listener : onInitialDrawListeners)
+                listener.onInitialDraw();
             isInitialDraw = false;
         }
         rectFrame.draw(canvas);
@@ -191,8 +198,12 @@ public class CropView extends View
         canvas.drawCircle(circle2Pos.x, circle2Pos.y, circleRadius, circlePaint);
     }
 
+    public void setOnInitialDrawListener(OnInitialDrawListener listener) {
+        onInitialDrawListeners.add(listener);
+    }
+
     public void setOnCropperAdjustedListener(OnCropperAdjustedListener listener) {
-        listeners.add(listener);
+        onCropperAdjustedListeners.add(listener);
     }
 
     @Override
@@ -230,7 +241,7 @@ public class CropView extends View
                 break;
             }
             case MotionEvent.ACTION_UP: {
-                for (OnCropperAdjustedListener listener : listeners)
+                for (OnCropperAdjustedListener listener : onCropperAdjustedListeners)
                     listener.onCropperAdjusted();
                 multiTouchData.clear();
                 break;

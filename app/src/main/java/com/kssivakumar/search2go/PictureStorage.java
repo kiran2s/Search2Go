@@ -79,6 +79,33 @@ public class PictureStorage
         return fileWritable.writeToFile(pictureFile);
     }
 
+    public static Uri saveToTemporaryStorage(byte[] jpegData, Context context) {
+        return saveToTemporaryStorage(new JpegDataWritable(jpegData), context);
+    }
+
+    public static Uri saveToTemporaryStorage(Bitmap bitmap, Context context) {
+        return saveToTemporaryStorage(new BitmapWritable(bitmap), context);
+    }
+
+    private static Uri saveToTemporaryStorage(FileWritable fileWritable, Context context) {
+        try {
+            File pictureFile = File.createTempFile(getNewFilename(), "", context.getCacheDir());
+            //pictureFile.deleteOnExit();
+
+            Uri uri = fileWritable.writeToFile(pictureFile);
+            Log.d(TAG, uri.toString());
+            for (File file : context.getCacheDir().listFiles()) {
+                Log.d(TAG, file.getAbsolutePath());
+            }
+
+            return uri;
+        }
+        catch (IOException e) {
+            Log.e(TAG, "Unable to create temporary file.");
+            return null;
+        }
+    }
+
     public static Uri saveToExternalPublicStorage(byte[] jpegData) {
         return saveToExternalPublicStorage(new JpegDataWritable(jpegData));
     }
@@ -115,6 +142,14 @@ public class PictureStorage
                 "Search2Go"
         );
         return savePictureInDir(fileWritable, picturesDir);
+    }
+
+    public static void deleteFile(Uri uri) {
+        File file = new File(uri.getPath());
+        if (file.delete())
+            Log.d(TAG, "Temp file deleted.");
+        else
+            Log.e(TAG, "Unable to delete temp file.");
     }
 
     private static Uri savePictureInDir(FileWritable fileWritable, File dir) {

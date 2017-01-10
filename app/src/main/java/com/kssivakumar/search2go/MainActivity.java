@@ -12,6 +12,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -230,6 +231,44 @@ public class MainActivity
         }
     }
 
+    private boolean zoomCamera(boolean zoomIn) {
+        Field[] cameraSourceDeclaredFields = CameraSource.class.getDeclaredFields();
+        for (Field field : cameraSourceDeclaredFields) {
+            if (field.getType() == Camera.class) {
+                field.setAccessible(true);
+                try {
+                    Camera camera = (Camera)field.get(cameraSource);
+                    if (camera != null) {
+                        Camera.Parameters cameraParams = camera.getParameters();
+                        if (!cameraParams.isZoomSupported()) {
+                            Log.w(TAG, "Camera zoom not supported on this device");
+                            return false;
+                        }
+
+                        int currentZoom = cameraParams.getZoom();
+                        final int MAX_ZOOM = cameraParams.getMaxZoom();
+                        final double ZOOM_AMT = Math.ceil(MAX_ZOOM / 10.0f);
+                        currentZoom += zoomIn ? ZOOM_AMT : -ZOOM_AMT;
+
+                        if (currentZoom < 0)
+                            currentZoom = 0;
+                        else if (currentZoom > MAX_ZOOM)
+                            currentZoom = MAX_ZOOM;
+
+                        cameraParams.setZoom(Math.round(currentZoom));
+                        camera.setParameters(cameraParams);
+                    }
+                } catch (IllegalAccessException e) {
+                    Log.d(TAG, "Cannot access camera in cameraSource.");
+                    return false;
+                }
+                break;
+            }
+        }
+
+        return true;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
@@ -270,15 +309,6 @@ public class MainActivity
         }
     };
 
-    /*
-    private View.OnClickListener surfaceView_OnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            focusCamera();
-        }
-    };
-    */
-
     private SurfaceHolder.Callback surfaceView_Callback = new SurfaceHolder.Callback() {
         @Override
         public void surfaceCreated(SurfaceHolder surfaceHolder) {
@@ -294,4 +324,27 @@ public class MainActivity
             surfaceAvailable = false;
         }
     };
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+                zoomCamera(true);
+                return true;
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                zoomCamera(false);
+                return true;
+            default:
+                return super.onKeyDown(keyCode, event);
+        }
+    }
+
+    /*
+    private View.OnClickListener surfaceView_OnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            focusCamera();
+        }
+    };
+    */
 }

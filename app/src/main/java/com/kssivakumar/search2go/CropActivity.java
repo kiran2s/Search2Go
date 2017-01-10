@@ -31,16 +31,17 @@ public class CropActivity extends AppCompatActivity
     private static int numInstances = 0;
     private static Hashtable<Integer, SparseArray<TextBlock>> textDetectionsHashtable =
             new Hashtable<>(1);
-    private final int ID;
     protected static SparseArray<TextBlock> getDetectedTextBlocks(int ID) {
         return textDetectionsHashtable.get(ID);
     }
+    private final int ID;
 
     private TextRecognizer textRecognizer;
     private ImageView imageView;
     private Bitmap imageViewBitmap;
     private CropView cropView;
     private TextView textView;
+    private SparseArray<TextBlock> textBlockDetections = new SparseArray<>(0);
 
     protected CropActivity() {
         ID = numInstances;
@@ -126,8 +127,10 @@ public class CropActivity extends AppCompatActivity
 
         textView = (TextView)findViewById(R.id.textView);
 
-        Button doneButton = (Button)findViewById(R.id.doneButton);
-        doneButton.setOnClickListener(doneButton_OnClickListener);
+        Button searchButton = (Button)findViewById(R.id.searchButton);
+        searchButton.setOnClickListener(searchButton_OnClickListener);
+        Button advancedSearchButton = (Button)findViewById(R.id.advancedSearchButton);
+        advancedSearchButton.setOnClickListener(advancedSearchButton_OnClickListener);
     }
 
     @Override
@@ -160,12 +163,40 @@ public class CropActivity extends AppCompatActivity
         );
     }
 
-    private View.OnClickListener doneButton_OnClickListener = new View.OnClickListener() {
+    private void detectTextInCropRegion() {
+        Bitmap croppedBitmap = cropPicture();
+        Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
+        textBlockDetections = textRecognizer.detect(croppedFrame);
+
+        if (textBlockDetections.size() > 0)
+            textView.setText(textBlockDetections.valueAt(0).getValue());
+        else
+            textView.setText("");
+    }
+
+    private View.OnClickListener searchButton_OnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            String query = textView.getText().toString();
+            String dialogText = getResources().getString(R.string.search_app_chooser_text);
+            Intent searchIntent = SearchIntentCreator.createSearchIntent(
+                    query,
+                    dialogText,
+                    getApplicationContext(),
+                    getPackageManager()
+            );
+            startActivity(searchIntent);
+        }
+    };
+
+    private View.OnClickListener advancedSearchButton_OnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
             Context context = getApplicationContext();
             Bitmap croppedBitmap = cropPicture();
-            Uri croppedPictureUri = PictureStorage.saveToExternalPublicStorage(croppedBitmap);
+            Uri croppedPictureUri = PictureStorage.saveToTemporaryStorage(croppedBitmap, context);
+            textDetectionsHashtable.put(ID, textBlockDetections);
+
             Intent searchActivityIntent = new Intent(context, SearchActivity.class);
             searchActivityIntent.setData(croppedPictureUri);
             searchActivityIntent.putExtra(EXTRA_ID, ID);
@@ -177,16 +208,7 @@ public class CropActivity extends AppCompatActivity
             new CropView.OnCropperAdjustedListener() {
                 @Override
                 public void onCropperAdjusted() {
-                    Bitmap croppedBitmap = cropPicture();
-                    Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
-                    final SparseArray<TextBlock> textBlockDetections =
-                            textRecognizer.detect(croppedFrame);
-                    textDetectionsHashtable.put(ID, textBlockDetections);
-
-                    if (textBlockDetections.size() > 0)
-                        textView.setText(textBlockDetections.valueAt(0).getValue());
-                    else
-                        textView.setText("");
+                    detectTextInCropRegion();
                 }
             };
 }
