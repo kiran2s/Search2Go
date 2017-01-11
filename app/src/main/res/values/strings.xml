@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">Search2Go</string>
     <string name="search_app_chooser_text">Select Search App</string>
+    <string name="browse_pictures_chooser_text">Select a Picture</string>
     <string name="text_detected_text">Text Detected</string>
+    <string name="empty_query_text">Search query is empty.</string>
 </resources>

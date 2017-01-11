@@ -38,6 +38,7 @@ public class MainActivity
     private static final int RC_HANDLE_CAMERA_PERM = 2;
 
     private static final int RC_IMAGE_CROP = 1;
+    private static final int RC_BROWSE_PICTURES = 2;
 
     private boolean cameraDispatchRequested;
     private boolean surfaceAvailable;
@@ -71,9 +72,7 @@ public class MainActivity
         final ImageButton takePictureButton = (ImageButton)findViewById(R.id.takePictureButton);
         takePictureButton.setOnClickListener(takePictureButton_OnClickListener);
         final ImageButton savedPicturesButton = (ImageButton)findViewById(R.id.savedPicturesButton);
-        ViewGroup vg = (ViewGroup)savedPicturesButton.getParent();
-        vg.removeView(savedPicturesButton);
-        //savedPicturesButton.setOnClickListener(savedPicturesButton_OnClickListener);
+        savedPicturesButton.setOnClickListener(savedPicturesButton_OnClickListener);
     }
 
     @Override
@@ -94,6 +93,10 @@ public class MainActivity
         super.onDestroy();
         cameraSource.release();
         cameraSource = null;
+    }
+
+    private boolean phoneHasCamera() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     }
 
     private void requestCameraPermissionIfNecessary() {
@@ -180,6 +183,15 @@ public class MainActivity
         }
     }
 
+    private void dispatchCropActivityIntent(Uri pictureUri) {
+        Intent cropActivityIntent = new Intent(
+                getApplicationContext(),
+                CropActivity.class
+        );
+        cropActivityIntent.setData(pictureUri);
+        startActivity(cropActivityIntent);
+    }
+
     private void takePicture() {
         cameraSource.takePicture(
                 null,
@@ -189,18 +201,20 @@ public class MainActivity
                         cameraSource.stop();
                         Uri pictureUri = PictureStorage.saveToExternalPublicStorage(bytes);
                         //dispatchCropper(pictureUri);
-                        Intent cropActivityIntent = new Intent(
-                                getApplicationContext(),
-                                CropActivity.class
-                        );
-                        cropActivityIntent.setData(pictureUri);
-                        startActivity(cropActivityIntent);
+                        dispatchCropActivityIntent(pictureUri);
                     }
                 }
         );
     }
 
-    private void dispatchSavedPicturesViewer() {}
+    private void dispatchSavedPicturesViewer() {
+        Intent browsePicturesIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        browsePicturesIntent.setType("image/*");
+        browsePicturesIntent.addCategory(Intent.CATEGORY_OPENABLE);
+        String dialogText = getResources().getString(R.string.search_app_chooser_text);
+        Intent browsePicturesChooser = Intent.createChooser(browsePicturesIntent, dialogText);
+        startActivityForResult(browsePicturesChooser, RC_BROWSE_PICTURES);
+    }
 
     private void dispatchCropper(Uri imageUri) {
         Intent cropImageIntent = new Intent("com.android.camera.action.CROP");
@@ -270,21 +284,6 @@ public class MainActivity
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            if (requestCode == RC_IMAGE_CROP) {
-                Bitmap croppedPictureBitmap = data.getExtras().getParcelable("data");
-                Uri croppedPictureUri =
-                        PictureStorage.saveToExternalPublicStorage(croppedPictureBitmap);
-
-                Intent searchActivityIntent = new Intent(getApplication(), SearchActivity.class);
-                searchActivityIntent.setData(croppedPictureUri);
-                startActivity(searchActivityIntent);
-            }
-        }
-    }
-
-    @Override
     public void textDetectionUpdated(boolean textDetected) {
         if (textDetected)
             textDetectedTextView.setText(R.string.text_detected_text);
@@ -292,8 +291,25 @@ public class MainActivity
             textDetectedTextView.setText("");
     }
 
-    private boolean phoneHasCamera() {
-        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            switch (requestCode) {
+                case RC_IMAGE_CROP: {
+                    Bitmap croppedPictureBitmap = data.getExtras().getParcelable("data");
+                    Uri croppedPictureUri =
+                            PictureStorage.saveToExternalPublicStorage(croppedPictureBitmap);
+
+                    Intent searchActivityIntent = new Intent(getApplication(), SearchActivity.class);
+                    searchActivityIntent.setData(croppedPictureUri);
+                    startActivity(searchActivityIntent);
+                }
+                case RC_BROWSE_PICTURES: {
+                    Uri pictureUri = data.getData();
+                    dispatchCropActivityIntent(pictureUri);
+                }
+            }
+        }
     }
 
     /*** Listeners and Callbacks ***/

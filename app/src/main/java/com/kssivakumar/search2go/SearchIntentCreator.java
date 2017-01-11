@@ -7,8 +7,10 @@ import android.content.Intent;
 import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.webkit.URLUtil;
+import android.widget.Toast;
 
 import com.google.android.youtube.player.YouTubeIntents;
 
@@ -24,10 +26,20 @@ public class SearchIntentCreator
     public static Intent createSearchIntent(String query,
                                             String dialogText,
                                             Context context,
+                                            Resources resources,
                                             PackageManager packageManager) {
 
         Intent searchIntent;
         Intent appChooserIntent;
+
+        if (query.isEmpty()) {
+            Toast toast = Toast.makeText(
+                    context,
+                    resources.getString(R.string.empty_query_text),
+                    Toast.LENGTH_SHORT);
+            toast.show();
+            return null;
+        }
 
         if (URLUtil.isValidUrl(query)) {
             searchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(query));

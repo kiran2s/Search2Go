@@ -2,6 +2,7 @@ package com.kssivakumar.search2go;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
@@ -178,13 +179,17 @@ public class CropActivity extends AppCompatActivity
         @Override
         public void onClick(View view) {
             String query = textView.getText().toString();
-            String dialogText = getResources().getString(R.string.search_app_chooser_text);
+            Resources resources = getResources();
+            String dialogText = resources.getString(R.string.search_app_chooser_text);
             Intent searchIntent = SearchIntentCreator.createSearchIntent(
                     query,
                     dialogText,
                     getApplicationContext(),
+                    resources,
                     getPackageManager()
             );
+            if (searchIntent == null)
+                return;
             startActivity(searchIntent);
         }
     };
