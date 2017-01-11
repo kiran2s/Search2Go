@@ -16,7 +16,6 @@ import android.view.KeyEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -27,6 +26,8 @@ import com.google.android.gms.vision.text.TextRecognizer;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.text.DecimalFormat;
+import java.util.List;
 
 public class MainActivity
         extends AppCompatActivity
@@ -42,10 +43,12 @@ public class MainActivity
 
     private boolean cameraDispatchRequested;
     private boolean surfaceAvailable;
+    private CameraAccessor cameraAccessor;
 
     private CameraSource cameraSource;
     private SurfaceView surfaceView;
     private TextView textDetectedTextView;
+    private TextView zoomTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,11 +66,12 @@ public class MainActivity
 
         surfaceView = (SurfaceView)findViewById(R.id.surfaceView);
         textDetectedTextView = (TextView)findViewById(R.id.textDetectedTextView);
+        zoomTextView = (TextView)findViewById(R.id.zoomTextView);
 
         surfaceView.getHolder().addCallback(surfaceView_Callback);
 
-        requestCameraPermissionIfNecessary();
-        createCamera();
+        if (!requestCameraPermissionIfNecessary())
+            createCamera();
 
         final ImageButton takePictureButton = (ImageButton)findViewById(R.id.takePictureButton);
         takePictureButton.setOnClickListener(takePictureButton_OnClickListener);
@@ -99,10 +103,10 @@ public class MainActivity
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     }
 
-    private void requestCameraPermissionIfNecessary() {
+    private boolean requestCameraPermissionIfNecessary() {
         int resultCode = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
         if (resultCode == PackageManager.PERMISSION_GRANTED)
-            return;
+            return false;
 
         Log.w(TAG, "Permission to handle camera not yet granted. Permission requested.");
         final String[] permissions = new String[] { Manifest.permission.CAMERA };
@@ -112,6 +116,7 @@ public class MainActivity
         )) {
             ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM);
         }
+        return true;
     }
 
     @Override
@@ -176,6 +181,7 @@ public class MainActivity
         if (cameraDispatchRequested && surfaceAvailable) {
             try {
                 cameraSource.start(surfaceView.getHolder());
+                cameraAccessor = new CameraAccessor();
             } catch (IOException e) {
                 finish();
             }
@@ -211,7 +217,7 @@ public class MainActivity
         Intent browsePicturesIntent = new Intent(Intent.ACTION_GET_CONTENT);
         browsePicturesIntent.setType("image/*");
         browsePicturesIntent.addCategory(Intent.CATEGORY_OPENABLE);
-        String dialogText = getResources().getString(R.string.search_app_chooser_text);
+        String dialogText = getResources().getString(R.string.browse_pictures_chooser_text);
         Intent browsePicturesChooser = Intent.createChooser(browsePicturesIntent, dialogText);
         startActivityForResult(browsePicturesChooser, RC_BROWSE_PICTURES);
     }
@@ -225,62 +231,77 @@ public class MainActivity
             startActivityForResult(cropImageIntent, RC_IMAGE_CROP);
     }
 
-    private void focusCamera() {
-        Field[] cameraSourceDeclaredFields = CameraSource.class.getDeclaredFields();
-        for (Field field : cameraSourceDeclaredFields) {
-            if (field.getType() == Camera.class) {
-                field.setAccessible(true);
-                try {
-                    Camera camera = (Camera)field.get(cameraSource);
-                    if (camera != null) {
-                        Camera.Parameters cameraParams = camera.getParameters();
-                        cameraParams.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
-                        camera.setParameters(cameraParams);
-                    }
-                } catch (IllegalAccessException e) {
-                    Log.d(TAG, "Cannot access camera in cameraSource.");
-                }
-                break;
-            }
-        }
-    }
+    private class CameraAccessor {
+        Camera camera = null;
+        int maxZoom;
+        List<Integer> zoomRatios;
+        double zoomAmt;
+        DecimalFormat zoomTextFormat;
 
-    private boolean zoomCamera(boolean zoomIn) {
-        Field[] cameraSourceDeclaredFields = CameraSource.class.getDeclaredFields();
-        for (Field field : cameraSourceDeclaredFields) {
-            if (field.getType() == Camera.class) {
-                field.setAccessible(true);
-                try {
-                    Camera camera = (Camera)field.get(cameraSource);
-                    if (camera != null) {
-                        Camera.Parameters cameraParams = camera.getParameters();
-                        if (!cameraParams.isZoomSupported()) {
-                            Log.w(TAG, "Camera zoom not supported on this device");
-                            return false;
+        public CameraAccessor() {
+            Field[] cameraSourceDeclaredFields = CameraSource.class.getDeclaredFields();
+            for (Field field : cameraSourceDeclaredFields) {
+                if (field.getType() == Camera.class) {
+                    field.setAccessible(true);
+                    try {
+                        camera = (Camera)field.get(cameraSource);
+                        if (camera != null) {
+                            Camera.Parameters cameraParams = camera.getParameters();
+                            if (!cameraParams.isZoomSupported())
+                                return;
+
+                            maxZoom = cameraParams.getMaxZoom();
+                            zoomRatios = cameraParams.getZoomRatios();
+                            final int MAX_ZOOM_RATIO = zoomRatios.get(maxZoom);
+                            final float DENOM = (MAX_ZOOM_RATIO - 100.0f) / 10.0f;
+                            zoomAmt = Math.ceil(maxZoom / DENOM);
+                            zoomTextFormat = new DecimalFormat("0.00");
+
+                            int currentZoom = cameraParams.getZoom();
+                            float currentZoomRatio = zoomRatios.get(currentZoom) / 100.0f;
+                            zoomTextView.setText(
+                                    zoomTextFormat.format(currentZoomRatio).concat(" X")
+                            );
                         }
-
-                        int currentZoom = cameraParams.getZoom();
-                        final int MAX_ZOOM = cameraParams.getMaxZoom();
-                        final double ZOOM_AMT = Math.ceil(MAX_ZOOM / 10.0f);
-                        currentZoom += zoomIn ? ZOOM_AMT : -ZOOM_AMT;
-
-                        if (currentZoom < 0)
-                            currentZoom = 0;
-                        else if (currentZoom > MAX_ZOOM)
-                            currentZoom = MAX_ZOOM;
-
-                        cameraParams.setZoom(Math.round(currentZoom));
-                        camera.setParameters(cameraParams);
+                    } catch (IllegalAccessException e) {
+                        Log.d(TAG, "Cannot access camera in cameraSource.");
                     }
-                } catch (IllegalAccessException e) {
-                    Log.d(TAG, "Cannot access camera in cameraSource.");
-                    return false;
+                    break;
                 }
-                break;
             }
         }
 
-        return true;
+        public void zoomCamera(boolean zoomIn) {
+            if (camera != null) {
+                Camera.Parameters cameraParams = camera.getParameters();
+                if (!cameraParams.isZoomSupported()) {
+                    Log.w(TAG, "Camera zoom not supported on this device");
+                    return;
+                }
+
+                int currentZoom = cameraParams.getZoom();
+                currentZoom += zoomIn ? zoomAmt : -zoomAmt;
+
+                if (currentZoom < 0)
+                    currentZoom = 0;
+                else if (currentZoom > maxZoom)
+                    currentZoom = maxZoom;
+
+                cameraParams.setZoom(Math.round(currentZoom));
+                camera.setParameters(cameraParams);
+
+                float currentZoomRatio = zoomRatios.get(currentZoom) / 100.0f;
+                zoomTextView.setText(zoomTextFormat.format(currentZoomRatio).concat(" X"));
+            }
+        }
+
+        public void focusCamera() {
+            if (camera != null) {
+                Camera.Parameters cameraParams = camera.getParameters();
+                cameraParams.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+                camera.setParameters(cameraParams);
+            }
+        }
     }
 
     @Override
@@ -345,10 +366,10 @@ public class MainActivity
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         switch (keyCode) {
             case KeyEvent.KEYCODE_VOLUME_UP:
-                zoomCamera(true);
+                cameraAccessor.zoomCamera(true);
                 return true;
             case KeyEvent.KEYCODE_VOLUME_DOWN:
-                zoomCamera(false);
+                cameraAccessor.zoomCamera(false);
                 return true;
             default:
                 return super.onKeyDown(keyCode, event);
