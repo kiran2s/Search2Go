@@ -90,15 +90,7 @@ public class PictureStorage
     private static Uri saveToTemporaryStorage(FileWritable fileWritable, Context context) {
         try {
             File pictureFile = File.createTempFile(getNewFilename(), "", context.getCacheDir());
-            //pictureFile.deleteOnExit();
-
-            Uri uri = fileWritable.writeToFile(pictureFile);
-            Log.d(TAG, uri.toString());
-            for (File file : context.getCacheDir().listFiles()) {
-                Log.d(TAG, file.getAbsolutePath());
-            }
-
-            return uri;
+            return fileWritable.writeToFile(pictureFile);
         }
         catch (IOException e) {
             Log.e(TAG, "Unable to create temporary file.");

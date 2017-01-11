@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -42,7 +43,7 @@ public class CropActivity extends AppCompatActivity
     private Bitmap imageViewBitmap;
     private CropView cropView;
     private TextView textView;
-    private SparseArray<TextBlock> textBlockDetections = new SparseArray<>(0);
+    private SparseArray<TextBlock> textBlockDetections = null;
 
     protected CropActivity() {
         ID = numInstances;
@@ -164,15 +165,10 @@ public class CropActivity extends AppCompatActivity
         );
     }
 
-    private void detectTextInCropRegion() {
+    private SparseArray<TextBlock> detectTextInCropRegion() {
         Bitmap croppedBitmap = cropPicture();
         Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
-        textBlockDetections = textRecognizer.detect(croppedFrame);
-
-        if (textBlockDetections.size() > 0)
-            textView.setText(textBlockDetections.valueAt(0).getValue());
-        else
-            textView.setText("");
+        return textRecognizer.detect(croppedFrame);
     }
 
     private View.OnClickListener searchButton_OnClickListener = new View.OnClickListener() {
@@ -197,10 +193,13 @@ public class CropActivity extends AppCompatActivity
     private View.OnClickListener advancedSearchButton_OnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
+            if (textBlockDetections == null)
+                textBlockDetections = detectTextInCropRegion();
+            textDetectionsHashtable.put(ID, textBlockDetections);
+
             Context context = getApplicationContext();
             Bitmap croppedBitmap = cropPicture();
             Uri croppedPictureUri = PictureStorage.saveToTemporaryStorage(croppedBitmap, context);
-            textDetectionsHashtable.put(ID, textBlockDetections);
 
             Intent searchActivityIntent = new Intent(context, SearchActivity.class);
             searchActivityIntent.setData(croppedPictureUri);
@@ -209,11 +208,36 @@ public class CropActivity extends AppCompatActivity
         }
     };
 
+    private class DetectTextInCropRegionTask
+            extends AsyncTask<Void, Void, SparseArray<TextBlock>> {
+        Bitmap croppedBitmap;
+
+        @Override
+        protected void onPreExecute() {
+            croppedBitmap = cropPicture();
+        }
+
+        @Override
+        protected SparseArray<TextBlock> doInBackground(Void... params) {
+            Frame croppedFrame = new Frame.Builder().setBitmap(croppedBitmap).build();
+            return textRecognizer.detect(croppedFrame);
+        }
+
+        @Override
+        protected void onPostExecute(SparseArray<TextBlock> result) {
+            textBlockDetections = result;
+            if (textBlockDetections.size() > 0)
+                textView.setText(textBlockDetections.valueAt(0).getValue());
+            else
+                textView.setText("");
+        }
+    }
+
     private CropView.OnCropperAdjustedListener cropView_OnCropperAdjustedListener =
             new CropView.OnCropperAdjustedListener() {
                 @Override
                 public void onCropperAdjusted() {
-                    detectTextInCropRegion();
+                    new DetectTextInCropRegionTask().execute();
                 }
             };
 }
