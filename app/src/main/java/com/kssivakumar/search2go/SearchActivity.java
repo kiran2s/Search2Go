@@ -1,6 +1,5 @@
 package com.kssivakumar.search2go;
 
-import android.app.ActionBar;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -11,27 +10,23 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
 
 import com.google.android.gms.vision.text.Text;
 import com.google.android.gms.vision.text.TextBlock;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class SearchActivity extends AppCompatActivity
 {
     private static final String TAG = "SearchActivity";
 
-    private ArrayList<TextView> detectedTextViews = new ArrayList<>();
-
     private ImageView imageView;
+    private Bitmap croppedPictureBitmap;
+    private TextBoxViewGroup textBoxViewGroup;
     private EditText searchText;
     private Button searchButton;
 
@@ -41,6 +36,7 @@ public class SearchActivity extends AppCompatActivity
         setContentView(R.layout.activity_search);
 
         imageView = (ImageView)findViewById(R.id.imageView);
+        textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
         searchText = (EditText)findViewById(R.id.searchText);
         searchButton = (Button)findViewById(R.id.searchButton);
 
@@ -48,7 +44,7 @@ public class SearchActivity extends AppCompatActivity
 
         Intent intent = getIntent();
         Uri croppedPictureUri = intent.getData();
-        Bitmap croppedPictureBitmap = null;
+        croppedPictureBitmap = null;
         try {
             croppedPictureBitmap =
                     MediaStore.Images.Media.getBitmap(getContentResolver(), croppedPictureUri);
@@ -61,7 +57,6 @@ public class SearchActivity extends AppCompatActivity
         Bundle extras = intent.getExtras();
         if (extras == null)
             return;
-
         int activityID = extras.getInt(CropActivity.EXTRA_ID);
         SparseArray<TextBlock> textBlocks = CropActivity.getDetectedTextBlocks(activityID);
         if (textBlocks == null)
@@ -69,15 +64,11 @@ public class SearchActivity extends AppCompatActivity
 
         Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
 
-        // TODO
         for (int i = 0; i < textBlocks.size(); i++) {
             TextBlock textBlock = textBlocks.valueAt(i);
             List<? extends Text> textLines = textBlock.getComponents();
-            for (Text textLine : textLines) {
-                TextView textView = new TextView(getApplicationContext());
-                textView.setText(textLine.getValue());
-                detectedTextViews.add(textView);
-            }
+            for (Text textLine : textLines)
+                textBoxViewGroup.addTextBox(textLine);
         }
 
         boolean textSet = false;

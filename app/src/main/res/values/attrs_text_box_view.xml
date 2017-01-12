@@ -1,0 +1,8 @@
+<resources>
+    <declare-styleable name="TextBoxView">
+        <attr name="boxBorderWidth" format="integer" />
+        <attr name="boxColor" format="color" />
+        <attr name="boxText" format="string" />
+        <attr name="textColor" format="color" />
+    </declare-styleable>
+</resources>
