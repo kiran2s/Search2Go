@@ -32,7 +32,7 @@ public class TextBoxViewGroup extends ViewGroup {
             this.BOTTOM = bottom;
         }
 
-        public void addTextBoxView() {
+        public void addToViewGroup() {
             textBoxView = new TextBoxView(context, attrs, defStyleAttr);
             textBoxView.setText(text);
             addView(textBoxView);
@@ -69,17 +69,73 @@ public class TextBoxViewGroup extends ViewGroup {
         return false;
     }
 
-    public void addTextBox(Text text) {
-        Rect textBoundingBox = text.getBoundingBox();
-        TextBox textBox =
-                new TextBox(text.getValue(),
-                        textBoundingBox.left,
-                        textBoundingBox.top,
-                        textBoundingBox.right,
-                        textBoundingBox.bottom
+    public class TextBoxAdder {
+        private float srcWidth;
+        private float srcHeight;
+        private float dstWidth;
+        private float dstHeight;
+        private float scaleFactor;
+        private boolean fillWidth;
+
+        public TextBoxAdder(float srcWidth, float srcHeight, float dstWidth, float dstHeight) {
+            this.srcWidth = srcWidth;
+            this.srcHeight = srcHeight;
+            this.dstWidth = dstWidth;
+            this.dstHeight = dstHeight;
+
+            float widthRatio = dstWidth / srcWidth;
+            float heightRatio = dstHeight / srcHeight;
+            fillWidth = widthRatio < heightRatio;
+            scaleFactor = fillWidth ? widthRatio : heightRatio;
+        }
+
+        public void addTextBox(Text text) {
+            Rect textBoundingBox = translate(scale(text.getBoundingBox()));
+            //Rect textBoundingBox = text.getBoundingBox();
+            TextBox textBox =
+                    new TextBox(text.getValue(),
+                            textBoundingBox.left,
+                            textBoundingBox.top,
+                            textBoundingBox.right,
+                            textBoundingBox.bottom
+                    );
+            textBox.addToViewGroup();
+            textBoxes.add(textBox);
+        }
+
+        private Rect scale(Rect rect) {
+            rect.set(
+                    Math.round(rect.left * scaleFactor),
+                    Math.round(rect.top * scaleFactor),
+                    Math.round(rect.right * scaleFactor),
+                    Math.round(rect.bottom * scaleFactor)
+            );
+            return rect;
+        }
+
+        private Rect translate(Rect rect) {
+            if (fillWidth) {
+                float srcHeightInDst = srcHeight * scaleFactor;
+                int translationY = Math.round((dstHeight - srcHeightInDst) / 2);
+                rect.set(
+                        rect.left,
+                        rect.top + translationY,
+                        rect.right,
+                        rect.bottom + translationY
                 );
-        textBox.addTextBoxView();
-        textBoxes.add(textBox);
+            }
+            else {
+                float srcWidthInDst = srcWidth * scaleFactor;
+                int translationX = Math.round((dstWidth - srcWidthInDst) / 2);
+                rect.set(
+                        rect.left + translationX,
+                        rect.top,
+                        rect.right + translationX,
+                        rect.bottom
+                );
+            }
+            return rect;
+        }
     }
 
     @Override

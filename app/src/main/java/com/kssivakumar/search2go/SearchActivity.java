@@ -27,6 +27,7 @@ public class SearchActivity extends AppCompatActivity
     private ImageView imageView;
     private Bitmap croppedPictureBitmap;
     private TextBoxViewGroup textBoxViewGroup;
+    private SparseArray<TextBlock> textBlocks;
     private EditText searchText;
     private Button searchButton;
 
@@ -58,28 +59,39 @@ public class SearchActivity extends AppCompatActivity
         if (extras == null)
             return;
         int activityID = extras.getInt(CropActivity.EXTRA_ID);
-        SparseArray<TextBlock> textBlocks = CropActivity.getDetectedTextBlocks(activityID);
+        textBlocks = CropActivity.getDetectedTextBlocks(activityID);
+        if (textBlocks == null)
+            return;
+        Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
+
+        // Does not work because imageView has not been laid out yet
+        // Read SearchActivity and TextBoxViewGroup
+        // Take imageView layout and textBoxViewGroup layout into account
+        Log.d(TAG, String.valueOf(croppedPictureBitmap.getWidth()));
+        Log.d(TAG, String.valueOf(croppedPictureBitmap.getHeight()));
+        Log.d(TAG, String.valueOf(imageView.getWidth()));
+        Log.d(TAG, String.valueOf(imageView.getHeight()));
+
         if (textBlocks == null)
             return;
 
-        Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
+        TextBoxViewGroup.TextBoxAdder textBoxAdder =
+                textBoxViewGroup.new TextBoxAdder(
+                        croppedPictureBitmap.getWidth(),
+                        croppedPictureBitmap.getHeight(),
+                        imageView.getWidth(),
+                        imageView.getHeight()
+                );
 
         for (int i = 0; i < textBlocks.size(); i++) {
             TextBlock textBlock = textBlocks.valueAt(i);
-            List<? extends Text> textLines = textBlock.getComponents();
-            for (Text textLine : textLines)
-                textBoxViewGroup.addTextBox(textLine);
-        }
-
-        boolean textSet = false;
-        for (int i = 0; i < textBlocks.size(); i++) {
-            TextBlock textBlock = textBlocks.valueAt(i);
-            if (textBlock != null && textBlock.getValue() != null) {
-                if (!textSet) {
-                    searchText.setText(textBlock.getValue());
-                    textSet = true;
+            if (textBlock != null) {
+                List<? extends Text> textLines = textBlock.getComponents();
+                if (textLines != null) {
+                    for (Text textLine : textLines) {
+                        textBoxAdder.addTextBox(textLine);
+                    }
                 }
-                Log.d(TAG, textBlock.getValue());
             }
         }
     }
