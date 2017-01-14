@@ -24,28 +24,22 @@ public class SearchActivity extends AppCompatActivity
 {
     private static final String TAG = "SearchActivity";
 
-    private ImageView imageView;
-    private Bitmap croppedPictureBitmap;
-    private TextBoxViewGroup textBoxViewGroup;
-    private SparseArray<TextBlock> textBlocks;
     private EditText searchText;
-    private Button searchButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
 
-        imageView = (ImageView)findViewById(R.id.imageView);
-        textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
         searchText = (EditText)findViewById(R.id.searchText);
-        searchButton = (Button)findViewById(R.id.searchButton);
-
+        ImageView imageView = (ImageView)findViewById(R.id.imageView);
+        TextBoxViewGroup textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
+        Button searchButton = (Button)findViewById(R.id.searchButton);
         searchButton.setOnClickListener(searchButton_onClickListener);
 
         Intent intent = getIntent();
         Uri croppedPictureUri = intent.getData();
-        croppedPictureBitmap = null;
+        Bitmap croppedPictureBitmap = null;
         try {
             croppedPictureBitmap =
                     MediaStore.Images.Media.getBitmap(getContentResolver(), croppedPictureUri);
@@ -59,28 +53,15 @@ public class SearchActivity extends AppCompatActivity
         if (extras == null)
             return;
         int activityID = extras.getInt(CropActivity.EXTRA_ID);
-        textBlocks = CropActivity.getDetectedTextBlocks(activityID);
+        SparseArray<TextBlock> textBlocks = CropActivity.getDetectedTextBlocks(activityID);
         if (textBlocks == null)
             return;
         Log.d(TAG, "Length of textBlocks: " + String.valueOf(textBlocks.size()));
 
-        // Does not work because imageView has not been laid out yet
-        // Read SearchActivity and TextBoxViewGroup
-        // Take imageView layout and textBoxViewGroup layout into account
-        Log.d(TAG, String.valueOf(croppedPictureBitmap.getWidth()));
-        Log.d(TAG, String.valueOf(croppedPictureBitmap.getHeight()));
-        Log.d(TAG, String.valueOf(imageView.getWidth()));
-        Log.d(TAG, String.valueOf(imageView.getHeight()));
-
-        if (textBlocks == null)
-            return;
-
         TextBoxViewGroup.TextBoxAdder textBoxAdder =
                 textBoxViewGroup.new TextBoxAdder(
                         croppedPictureBitmap.getWidth(),
-                        croppedPictureBitmap.getHeight(),
-                        imageView.getWidth(),
-                        imageView.getHeight()
+                        croppedPictureBitmap.getHeight()
                 );
 
         for (int i = 0; i < textBlocks.size(); i++) {

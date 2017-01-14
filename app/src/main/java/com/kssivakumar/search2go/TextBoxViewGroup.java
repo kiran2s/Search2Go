@@ -3,6 +3,7 @@ package com.kssivakumar.search2go;
 import android.content.Context;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.ViewGroup;
 
 import com.google.android.gms.vision.text.Text;
@@ -10,26 +11,27 @@ import com.google.android.gms.vision.text.Text;
 import java.util.ArrayList;
 
 public class TextBoxViewGroup extends ViewGroup {
+    private static String TAG = "TextBoxViewGroup";
+
     private Context context;
     private AttributeSet attrs;
     private int defStyleAttr;
 
+    private boolean isInitialLayout = true;
+    private float width;
+    private float height;
+    private float bitmapWidth;
+    private float bitmapHeight;
     private ArrayList<TextBox> textBoxes = new ArrayList<>();
 
     private class TextBox {
         private TextBoxView textBoxView;
         private String text;
-        private final int LEFT;
-        private final int TOP;
-        private final int RIGHT;
-        private final int BOTTOM;
+        private Rect rect;
 
-        public TextBox(String text, int left, int top, int right, int bottom) {
+        public TextBox(String text, Rect rect) {
             this.text = text;
-            this.LEFT = left;
-            this.TOP = top;
-            this.RIGHT = right;
-            this.BOTTOM = bottom;
+            this.rect = rect;
         }
 
         public void addToViewGroup() {
@@ -38,8 +40,60 @@ public class TextBoxViewGroup extends ViewGroup {
             addView(textBoxView);
         }
 
+        public void layout(float scaleFactor, boolean fillWidth) {
+            scale(scaleFactor);
+            translate(scaleFactor, fillWidth);
+            layout();
+        }
+
         public void layout() {
-            textBoxView.layout(LEFT, TOP, RIGHT, BOTTOM);
+            textBoxView.layout(rect.left, rect.top, rect.right, rect.bottom);
+        }
+
+        private void scale(float scaleFactor) {
+            rect.set(
+                    Math.round(rect.left * scaleFactor),
+                    Math.round(rect.top * scaleFactor),
+                    Math.round(rect.right * scaleFactor),
+                    Math.round(rect.bottom * scaleFactor)
+            );
+        }
+
+        private void translate(float scaleFactor, boolean fillWidth) {
+            int translationX = 0;
+            int translationY = 0;
+            if (fillWidth) {
+                float pictureHeight = bitmapHeight * scaleFactor;
+                translationY = Math.round((height - pictureHeight) / 2);
+            }
+            else {
+                float pictureWidth = bitmapWidth * scaleFactor;
+                translationX = Math.round((width - pictureWidth) / 2);
+            }
+
+            rect.set(
+                    rect.left + translationX,
+                    rect.top + translationY,
+                    rect.right + translationX,
+                    rect.bottom + translationY
+            );
+        }
+    }
+
+    public class TextBoxAdder {
+        public TextBoxAdder(float bitmapWidth, float bitmapHeight) {
+            TextBoxViewGroup.this.bitmapWidth = bitmapWidth;
+            TextBoxViewGroup.this.bitmapHeight = bitmapHeight;
+        }
+
+        public void addTextBox(Text text) {
+            TextBox textBox =
+                    new TextBox(
+                            text.getValue(),
+                            text.getBoundingBox()
+                    );
+            textBox.addToViewGroup();
+            textBoxes.add(textBox);
         }
     }
 
@@ -69,78 +123,26 @@ public class TextBoxViewGroup extends ViewGroup {
         return false;
     }
 
-    public class TextBoxAdder {
-        private float srcWidth;
-        private float srcHeight;
-        private float dstWidth;
-        private float dstHeight;
-        private float scaleFactor;
-        private boolean fillWidth;
-
-        public TextBoxAdder(float srcWidth, float srcHeight, float dstWidth, float dstHeight) {
-            this.srcWidth = srcWidth;
-            this.srcHeight = srcHeight;
-            this.dstWidth = dstWidth;
-            this.dstHeight = dstHeight;
-
-            float widthRatio = dstWidth / srcWidth;
-            float heightRatio = dstHeight / srcHeight;
-            fillWidth = widthRatio < heightRatio;
-            scaleFactor = fillWidth ? widthRatio : heightRatio;
-        }
-
-        public void addTextBox(Text text) {
-            Rect textBoundingBox = translate(scale(text.getBoundingBox()));
-            //Rect textBoundingBox = text.getBoundingBox();
-            TextBox textBox =
-                    new TextBox(text.getValue(),
-                            textBoundingBox.left,
-                            textBoundingBox.top,
-                            textBoundingBox.right,
-                            textBoundingBox.bottom
-                    );
-            textBox.addToViewGroup();
-            textBoxes.add(textBox);
-        }
-
-        private Rect scale(Rect rect) {
-            rect.set(
-                    Math.round(rect.left * scaleFactor),
-                    Math.round(rect.top * scaleFactor),
-                    Math.round(rect.right * scaleFactor),
-                    Math.round(rect.bottom * scaleFactor)
-            );
-            return rect;
-        }
-
-        private Rect translate(Rect rect) {
-            if (fillWidth) {
-                float srcHeightInDst = srcHeight * scaleFactor;
-                int translationY = Math.round((dstHeight - srcHeightInDst) / 2);
-                rect.set(
-                        rect.left,
-                        rect.top + translationY,
-                        rect.right,
-                        rect.bottom + translationY
-                );
-            }
-            else {
-                float srcWidthInDst = srcWidth * scaleFactor;
-                int translationX = Math.round((dstWidth - srcWidthInDst) / 2);
-                rect.set(
-                        rect.left + translationX,
-                        rect.top,
-                        rect.right + translationX,
-                        rect.bottom
-                );
-            }
-            return rect;
-        }
-    }
-
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        for (TextBox textBox : textBoxes)
-            textBox.layout();
+        if (isInitialLayout) {
+            isInitialLayout = false;
+
+            width = getWidth();
+            height = getHeight();
+            float widthRatio = width / bitmapWidth;
+            float heightRatio = height / bitmapHeight;
+            boolean fillWidth = widthRatio < heightRatio;
+            float scaleFactor = fillWidth ? widthRatio : heightRatio;
+
+            for (TextBox textBox : textBoxes) {
+                textBox.layout(scaleFactor, fillWidth);
+            }
+        }
+        else {
+            for (TextBox textBox : textBoxes) {
+                textBox.layout();
+            }
+        }
     }
 }
