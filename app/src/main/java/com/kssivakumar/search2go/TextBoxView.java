@@ -17,6 +17,7 @@ public class TextBoxView extends View
     private final static String TAG = "TextBoxView";
 
     private boolean isInitialDraw = true;
+    private boolean isBeingDragged = false;
 
     private Rect box;
     private int boxBorderWidth = 6;
@@ -77,24 +78,33 @@ public class TextBoxView extends View
             isInitialDraw = false;
         }
         canvas.drawRect(box, boxPaint);
-        canvas.drawText(boxText, box.left, box.bottom, textPaint);
+
+        if (isBeingDragged)
+            canvas.drawText(boxText, box.left, box.bottom, textPaint);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN: {
+                isBeingDragged = true;
                 ClipData clipData = ClipData.newPlainText("text", boxText);
                 DragShadowBuilder shadowBuilder = new DragShadowBuilder(this);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
                     startDragAndDrop(clipData, shadowBuilder, null, 0);
                 else
                     startDrag(clipData, shadowBuilder, null, 0);
-                return true;
+
+                break;
             }
-            default:
-                return false;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                isBeingDragged = false;
+                break;
+            }
         }
+
+        return true;
     }
 
     public String getText() {

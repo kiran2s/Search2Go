@@ -24,11 +24,13 @@ import com.google.android.gms.vision.text.TextRecognizer;
 
 import java.io.IOException;
 import java.util.Hashtable;
+import java.util.concurrent.ExecutionException;
 
 public class CropActivity extends AppCompatActivity
 {
     private static final String TAG = "CropActivity";
 
+    private AsyncTask<Void, Void, SparseArray<TextBlock>> ocrTask = null;
     protected static final String EXTRA_ID = "ID";
     private static int numInstances = 0;
     private static Hashtable<Integer, SparseArray<TextBlock>> textDetectionsHashtable =
@@ -193,6 +195,13 @@ public class CropActivity extends AppCompatActivity
     private View.OnClickListener advancedSearchButton_OnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
+            if (ocrTask != null && ocrTask.getStatus() == AsyncTask.Status.RUNNING) {
+                try {
+                    textBlockDetections = ocrTask.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    Log.e(TAG, "Error waiting for OCR Task.");
+                }
+            }
             if (textBlockDetections == null)
                 textBlockDetections = detectTextInCropRegion();
             textDetectionsHashtable.put(ID, textBlockDetections);
@@ -237,7 +246,7 @@ public class CropActivity extends AppCompatActivity
             new CropView.OnCropperAdjustedListener() {
                 @Override
                 public void onCropperAdjusted() {
-                    new DetectTextInCropRegionTask().execute();
+                    ocrTask = new DetectTextInCropRegionTask().execute();
                 }
             };
 }
