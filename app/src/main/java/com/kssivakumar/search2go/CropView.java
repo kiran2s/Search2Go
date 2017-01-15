@@ -50,8 +50,10 @@ public class CropView extends View
     private int circleColor;
 
     private Paint circlePaint;
-    private PointF circle1Pos;
-    private PointF circle2Pos;
+    private PointF circleLBPos;
+    private PointF circleRTPos;
+    private PointF circleLTPos;
+    private PointF circleRBPos;
 
     private Hashtable<Integer, SingleTouchData> multiTouchData;
 
@@ -92,7 +94,7 @@ public class CropView extends View
     }
 
     private enum TouchClassification {
-        IN_CIRCLE1, IN_CIRCLE2, IN_RECT, OUTSIDE_CROPPER
+        IN_CIRCLE_LB, IN_CIRCLE_RT, IN_CIRCLE_LT, IN_CIRCLE_RB, IN_RECT, OUTSIDE_CROPPER
     }
 
     private class SingleTouchData {
@@ -160,8 +162,10 @@ public class CropView extends View
 
         circlePaint = new Paint();
         circlePaint.setColor(circleColor);
-        circle1Pos = new PointF();
-        circle2Pos = new PointF();
+        circleLBPos = new PointF();
+        circleRTPos = new PointF();
+        circleLTPos = new PointF();
+        circleRBPos = new PointF();
 
         multiTouchData = new Hashtable<>(3);
     }
@@ -178,8 +182,10 @@ public class CropView extends View
     private void invalidateCropper() {
         rect.set(rectX, rectY, rectX + rectWidth, rectY + rectHeight);
         rectFrame.set(rectX, rectY, rectWidth, rectHeight);
-        circle1Pos.set(rectX, rectY + rectHeight);
-        circle2Pos.set(rectX + rectWidth, rectY);
+        circleLBPos.set(rectX, rectY + rectHeight);
+        circleRTPos.set(rectX + rectWidth, rectY);
+        circleLTPos.set(rectX, rectY);
+        circleRBPos.set(rectX + rectWidth, rectY + rectHeight);
     }
 
     @Override
@@ -194,8 +200,10 @@ public class CropView extends View
         }
         rectFrame.draw(canvas);
         canvas.drawRect(rect, rectPaint);
-        canvas.drawCircle(circle1Pos.x, circle1Pos.y, circleRadius, circlePaint);
-        canvas.drawCircle(circle2Pos.x, circle2Pos.y, circleRadius, circlePaint);
+        canvas.drawCircle(circleLBPos.x, circleLBPos.y, circleRadius, circlePaint);
+        canvas.drawCircle(circleRTPos.x, circleRTPos.y, circleRadius, circlePaint);
+        canvas.drawCircle(circleLTPos.x, circleLTPos.y, circleRadius, circlePaint);
+        canvas.drawCircle(circleRBPos.x, circleRBPos.y, circleRadius, circlePaint);
     }
 
     public void setOnInitialDrawListener(OnInitialDrawListener listener) {
@@ -256,56 +264,83 @@ public class CropView extends View
     }
 
     private void updateRect(PointF differenceVector, TouchClassification touchClassification) {
-        switch (touchClassification) {
-            case IN_CIRCLE1:
-            case IN_CIRCLE2:
-            {
-                int prevRectX = rectX;
-                int prevRectY = rectY;
-                int prevRectWidth = rectWidth;
-                int prevRectHeight = rectHeight;
-                int newCircleX;
-                int newCircleY;
+        if (touchClassification == TouchClassification.IN_RECT) {
+            PointF newRectPos = translatePoint(new PointF(rectX, rectY), differenceVector);
+            rectX = Math.round(newRectPos.x);
+            rectY = Math.round(newRectPos.y);
+        }
+        else if (touchClassification != TouchClassification.OUTSIDE_CROPPER) {
+            int prevRectX = rectX;
+            int prevRectY = rectY;
+            int prevRectWidth = rectWidth;
+            int prevRectHeight = rectHeight;
+            int newCircleX;
+            int newCircleY;
 
-                if (touchClassification == TouchClassification.IN_CIRCLE1) {
-                    PointF newCirclePos = translatePoint(circle1Pos, differenceVector);
+            switch (touchClassification) {
+                case IN_CIRCLE_LB: {
+                    PointF newCirclePos = translatePoint(circleLBPos, differenceVector);
                     if (isPointInView(newCirclePos)) {
                         newCircleX = Math.round(newCirclePos.x);
                         newCircleY = Math.round(newCirclePos.y);
 
                         rectX = newCircleX;
-                        rectWidth += prevRectX - newCircleX;
+                        rectWidth = prevRectWidth + prevRectX - newCircleX;
                         rectHeight = newCircleY - prevRectY;
                     }
+                    break;
                 }
-                else {
-                    PointF newCirclePos = translatePoint(circle2Pos, differenceVector);
+                case IN_CIRCLE_RT: {
+                    PointF newCirclePos = translatePoint(circleRTPos, differenceVector);
                     if (isPointInView(newCirclePos)) {
                         newCircleX = Math.round(newCirclePos.x);
                         newCircleY = Math.round(newCirclePos.y);
 
                         rectY = newCircleY;
-                        rectHeight += prevRectY - newCircleY;
                         rectWidth = newCircleX - prevRectX;
+                        rectHeight = prevRectHeight + prevRectY - newCircleY;
                     }
+                    break;
                 }
+                case IN_CIRCLE_LT: {
+                    PointF newCirclePos = translatePoint(circleLTPos, differenceVector);
+                    if (isPointInView(newCirclePos)) {
+                        newCircleX = Math.round(newCirclePos.x);
+                        newCircleY = Math.round(newCirclePos.y);
 
-                if (rectWidth < circleRadius) {
-                    rectWidth = circleRadius;
+                        rectX = newCircleX;
+                        rectY = newCircleY;
+                        rectWidth = prevRectWidth + prevRectX - newCircleX;
+                        rectHeight = prevRectHeight + prevRectY - newCircleY;
+                    }
+                    break;
+                }
+                case IN_CIRCLE_RB: {
+                    PointF newCirclePos = translatePoint(circleRBPos, differenceVector);
+                    if (isPointInView(newCirclePos)) {
+                        newCircleX = Math.round(newCirclePos.x);
+                        newCircleY = Math.round(newCirclePos.y);
+
+                        rectWidth = newCircleX - prevRectX;
+                        rectHeight = newCircleY - prevRectY;
+                    }
+                    break;
+                }
+            }
+
+            if (rectWidth < circleRadius) {
+                rectWidth = circleRadius;
+                if (    touchClassification == TouchClassification.IN_CIRCLE_LT ||
+                        touchClassification == TouchClassification.IN_CIRCLE_LB     ) {
                     rectX = prevRectX + prevRectWidth - rectWidth;
                 }
-                if (rectHeight < circleRadius) {
-                    rectHeight = circleRadius;
+            }
+            if (rectHeight < circleRadius) {
+                rectHeight = circleRadius;
+                if (    touchClassification == TouchClassification.IN_CIRCLE_LT ||
+                        touchClassification == TouchClassification.IN_CIRCLE_RT     ) {
                     rectY = prevRectY + prevRectHeight - rectHeight;
                 }
-
-                break;
-            }
-            case IN_RECT: {
-                PointF newRectPos = translatePoint(new PointF(rectX, rectY), differenceVector);
-                rectX = Math.round(newRectPos.x);
-                rectY = Math.round(newRectPos.y);
-                break;
             }
         }
 
@@ -315,10 +350,14 @@ public class CropView extends View
     }
 
     private TouchClassification determineTouchClassification(PointF touchPoint) {
-        if (isPointInCircle(touchPoint, circle1Pos, CIRCLE_TOUCH_FACTOR * circleRadius))
-            return TouchClassification.IN_CIRCLE1;
-        else if (isPointInCircle(touchPoint, circle2Pos, CIRCLE_TOUCH_FACTOR * circleRadius))
-            return TouchClassification.IN_CIRCLE2;
+        if (isPointInCircle(touchPoint, circleLBPos, CIRCLE_TOUCH_FACTOR * circleRadius))
+            return TouchClassification.IN_CIRCLE_LB;
+        else if (isPointInCircle(touchPoint, circleRTPos, CIRCLE_TOUCH_FACTOR * circleRadius))
+            return TouchClassification.IN_CIRCLE_RT;
+        else if (isPointInCircle(touchPoint, circleLTPos, CIRCLE_TOUCH_FACTOR * circleRadius))
+            return TouchClassification.IN_CIRCLE_LT;
+        else if (isPointInCircle(touchPoint, circleRBPos, CIRCLE_TOUCH_FACTOR * circleRadius))
+            return TouchClassification.IN_CIRCLE_RB;
         else if (isPointInRect(touchPoint))
             return TouchClassification.IN_RECT;
         else
@@ -355,22 +394,18 @@ public class CropView extends View
 
         int viewWidth = getWidth();
         int viewHeight = getHeight();
-        switch (touchClassification) {
-            case IN_CIRCLE1:
-            case IN_CIRCLE2: {
-                if (rectX + rectWidth > viewWidth)
-                    rectWidth = viewWidth - rectX;
-                if (rectY + rectHeight > viewHeight)
-                    rectHeight = viewHeight - rectY;
-                break;
-            }
-            case IN_RECT: {
-                if (rectX + rectWidth > viewWidth)
-                    rectX = viewWidth - rectWidth;
-                if (rectY + rectHeight > viewHeight)
-                    rectY = viewHeight - rectHeight;
-                break;
-            }
+
+        if (touchClassification == TouchClassification.IN_RECT) {
+            if (rectX + rectWidth > viewWidth)
+                rectX = viewWidth - rectWidth;
+            if (rectY + rectHeight > viewHeight)
+                rectY = viewHeight - rectHeight;
+        }
+        else if (touchClassification != TouchClassification.OUTSIDE_CROPPER) {
+            if (rectX + rectWidth > viewWidth)
+                rectWidth = viewWidth - rectX;
+            if (rectY + rectHeight > viewHeight)
+                rectHeight = viewHeight - rectY;
         }
     }
 
