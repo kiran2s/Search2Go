@@ -1,5 +1,6 @@
 package com.kssivakumar.search2go;
 
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -9,10 +10,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.DragEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import com.google.android.gms.vision.text.Text;
 import com.google.android.gms.vision.text.TextBlock;
@@ -24,6 +27,7 @@ public class SearchActivity extends AppCompatActivity
 {
     private static final String TAG = "SearchActivity";
 
+    private RelativeLayout searchTextAreaLayout;
     private EditText searchText;
 
     @Override
@@ -31,6 +35,8 @@ public class SearchActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
 
+        searchTextAreaLayout =
+                (RelativeLayout)findViewById(R.id.searchTextAreaLayout);
         searchText = (EditText)findViewById(R.id.searchText);
         ImageView imageView = (ImageView)findViewById(R.id.imageView);
         TextBoxViewGroup textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
@@ -75,6 +81,8 @@ public class SearchActivity extends AppCompatActivity
                 }
             }
         }
+
+        searchTextAreaLayout.setOnDragListener(searchTextAreaLayout_OnDragListener);
     }
 
     // Listeners
@@ -93,6 +101,28 @@ public class SearchActivity extends AppCompatActivity
             if (searchIntent == null)
                 return;
             startActivity(searchIntent);
+        }
+    };
+
+    private View.OnDragListener searchTextAreaLayout_OnDragListener = new View.OnDragListener() {
+        @Override
+        public boolean onDrag(View v, DragEvent event) {
+            if (event.getAction() == DragEvent.ACTION_DROP) {
+                String originalText = searchText.getText().toString();
+                ClipData clipData = event.getClipData();
+                if (clipData != null && clipData.getItemCount() > 0) {
+                    String textToAdd = clipData.getItemAt(0).getText().toString();
+                    if (event.getX() < (searchTextAreaLayout.getWidth() / 2)) {
+                        searchText.setText(textToAdd.concat(" ").concat(originalText));
+                    } else {
+                        searchText.setText(originalText.concat(" ").concat(textToAdd));
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
         }
     };
 }

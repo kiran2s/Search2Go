@@ -26,17 +26,15 @@ public class TextBoxViewGroup extends ViewGroup {
 
     private class TextBox {
         private TextBoxView textBoxView;
-        private String text;
         private Rect rect;
 
         public TextBox(String text, Rect rect) {
-            this.text = text;
+            textBoxView = new TextBoxView(context, attrs, defStyleAttr);
+            textBoxView.setText(text);
             this.rect = rect;
         }
 
         public void addToViewGroup() {
-            textBoxView = new TextBoxView(context, attrs, defStyleAttr);
-            textBoxView.setText(text);
             addView(textBoxView);
         }
 

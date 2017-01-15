@@ -1,12 +1,15 @@
 package com.kssivakumar.search2go;
 
+import android.content.ClipData;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.os.Build;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 public class TextBoxView extends View
@@ -16,8 +19,8 @@ public class TextBoxView extends View
     private boolean isInitialDraw = true;
 
     private Rect box;
-    private int boxBorderWidth = 4;
-    private int boxColor = Color.GREEN;
+    private int boxBorderWidth = 6;
+    private int boxColor = Color.CYAN;
     private Paint boxPaint;
 
     private String boxText;
@@ -57,7 +60,7 @@ public class TextBoxView extends View
 
         textPaint = new Paint();
         textPaint.setColor(textColor);
-        textPaint.setTextSize(40.0f);
+        textPaint.setTextSize(50.0f);
     }
 
     @Override
@@ -75,6 +78,23 @@ public class TextBoxView extends View
         }
         canvas.drawRect(box, boxPaint);
         canvas.drawText(boxText, box.left, box.bottom, textPaint);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN: {
+                ClipData clipData = ClipData.newPlainText("text", boxText);
+                DragShadowBuilder shadowBuilder = new DragShadowBuilder(this);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                    startDragAndDrop(clipData, shadowBuilder, null, 0);
+                else
+                    startDrag(clipData, shadowBuilder, null, 0);
+                return true;
+            }
+            default:
+                return false;
+        }
     }
 
     public String getText() {
