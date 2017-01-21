@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import com.google.android.gms.vision.text.Text;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class TextBoxViewGroup extends ViewGroup {
     private static String TAG = "TextBoxViewGroup";
@@ -22,11 +23,14 @@ public class TextBoxViewGroup extends ViewGroup {
     private float height;
     private float bitmapWidth;
     private float bitmapHeight;
-    private ArrayList<TextBox> textBoxes = new ArrayList<>();
+    private ArrayList<TextBox> textLineBoxes = new ArrayList<>();
+    private ArrayList<TextBox> textWordBoxes = new ArrayList<>();
+    private boolean isSplitByLine = true;
 
     private class TextBox {
         private TextBoxView textBoxView;
         private Rect rect;
+        private boolean isInViewGroup = false;
 
         public TextBox(String text, Rect rect) {
             textBoxView = new TextBoxView(context, attrs, defStyleAttr);
@@ -35,17 +39,26 @@ public class TextBoxViewGroup extends ViewGroup {
         }
 
         public void addToViewGroup() {
-            addView(textBoxView);
+            if (!isInViewGroup) {
+                addView(textBoxView);
+                isInViewGroup = true;
+            }
         }
 
-        public void layout(float scaleFactor, boolean fillWidth) {
-            scale(scaleFactor);
-            translate(scaleFactor, fillWidth);
-            layout();
+        public void removeFromViewGroup() {
+            if (isInViewGroup) {
+                removeView(textBoxView);
+                isInViewGroup = false;
+            }
         }
 
         public void layout() {
             textBoxView.layout(rect.left, rect.top, rect.right, rect.bottom);
+        }
+
+        public void scaleAndTranslate(float scaleFactor, boolean fillWidth) {
+            scale(scaleFactor);
+            translate(scaleFactor, fillWidth);
         }
 
         private void scale(float scaleFactor) {
@@ -85,13 +98,16 @@ public class TextBoxViewGroup extends ViewGroup {
         }
 
         public void addTextBox(Text text) {
-            TextBox textBox =
-                    new TextBox(
-                            text.getValue(),
-                            text.getBoundingBox()
-                    );
-            textBox.addToViewGroup();
-            textBoxes.add(textBox);
+            TextBox textBox = new TextBox(text.getValue(), text.getBoundingBox());
+            textLineBoxes.add(textBox);
+
+            List<? extends Text> words = text.getComponents();
+            if (words != null) {
+                for (Text word : words) {
+                    TextBox textWordBox = new TextBox(word.getValue(), word.getBoundingBox());
+                    textWordBoxes.add(textWordBox);
+                }
+            }
         }
     }
 
@@ -133,14 +149,44 @@ public class TextBoxViewGroup extends ViewGroup {
             boolean fillWidth = widthRatio < heightRatio;
             float scaleFactor = fillWidth ? widthRatio : heightRatio;
 
-            for (TextBox textBox : textBoxes) {
-                textBox.layout(scaleFactor, fillWidth);
+            for (TextBox textLineBox : textLineBoxes) {
+                textLineBox.addToViewGroup();
+                textLineBox.scaleAndTranslate(scaleFactor, fillWidth);
+                textLineBox.layout();
+            }
+            for (TextBox textWordBox : textWordBoxes) {
+                textWordBox.scaleAndTranslate(scaleFactor, fillWidth);
+                textWordBox.layout();
             }
         }
         else {
-            for (TextBox textBox : textBoxes) {
+            for (TextBox textBox : textLineBoxes) {
                 textBox.layout();
             }
         }
+    }
+
+    public void splitTextByLine() {
+        if (isSplitByLine)
+            return;
+        splitText(textLineBoxes, textWordBoxes);
+        isSplitByLine = true;
+    }
+
+    public void splitTextByWord() {
+        if (!isSplitByLine)
+            return;
+        splitText(textWordBoxes, textLineBoxes);
+        isSplitByLine = false;
+    }
+
+    private void splitText(ArrayList<TextBox> newTextBoxes, ArrayList<TextBox> prevTextBoxes) {
+        for (TextBox prevTextBox : prevTextBoxes) {
+            prevTextBox.removeFromViewGroup();
+        }
+        for (TextBox newTextBox : newTextBoxes) {
+            newTextBox.addToViewGroup();
+        }
+        invalidate();
     }
 }

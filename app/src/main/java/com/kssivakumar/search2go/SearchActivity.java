@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.DragEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -27,8 +29,12 @@ public class SearchActivity extends AppCompatActivity
 {
     private static final String TAG = "SearchActivity";
 
+    private static final int LINE_SPLIT = 0;
+    private static final int WORD_SPLIT = 1;
+
     private RelativeLayout searchTextAreaLayout;
     private EditText searchText;
+    private TextBoxViewGroup textBoxViewGroup;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +45,7 @@ public class SearchActivity extends AppCompatActivity
                 (RelativeLayout)findViewById(R.id.searchTextAreaLayout);
         searchText = (EditText)findViewById(R.id.searchText);
         ImageView imageView = (ImageView)findViewById(R.id.imageView);
-        TextBoxViewGroup textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
+        textBoxViewGroup = (TextBoxViewGroup)findViewById(R.id.textBoxViewGroup);
         Button searchButton = (Button)findViewById(R.id.searchButton);
         searchButton.setOnClickListener(searchButton_onClickListener);
 
@@ -83,6 +89,31 @@ public class SearchActivity extends AppCompatActivity
         }
 
         searchTextAreaLayout.setOnDragListener(searchTextAreaLayout_OnDragListener);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(Menu.NONE, LINE_SPLIT, Menu.NONE, "Split by line");
+        menu.add(Menu.NONE, WORD_SPLIT, Menu.NONE, "Split by word");
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case LINE_SPLIT: {
+                Log.d(TAG, "LINE_SPLIT");
+                textBoxViewGroup.splitTextByLine();
+                break;
+            }
+            case WORD_SPLIT: {
+                Log.d(TAG, "WORD_SPLIT");
+                textBoxViewGroup.splitTextByWord();
+                break;
+            }
+        }
+
+        return true;
     }
 
     // Listeners
