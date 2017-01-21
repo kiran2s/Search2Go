@@ -25,7 +25,7 @@ public class TextBoxViewGroup extends ViewGroup {
     private float bitmapHeight;
     private ArrayList<TextBox> textLineBoxes = new ArrayList<>();
     private ArrayList<TextBox> textWordBoxes = new ArrayList<>();
-    private boolean isSplitByLine = true;
+    private boolean isTextSplitByLine = true;
 
     private class TextBox {
         private TextBoxView textBoxView;
@@ -167,17 +167,17 @@ public class TextBoxViewGroup extends ViewGroup {
     }
 
     public void splitTextByLine() {
-        if (isSplitByLine)
+        if (isTextSplitByLine)
             return;
         splitText(textLineBoxes, textWordBoxes);
-        isSplitByLine = true;
+        isTextSplitByLine = true;
     }
 
     public void splitTextByWord() {
-        if (!isSplitByLine)
+        if (!isTextSplitByLine)
             return;
         splitText(textWordBoxes, textLineBoxes);
-        isSplitByLine = false;
+        isTextSplitByLine = false;
     }
 
     private void splitText(ArrayList<TextBox> newTextBoxes, ArrayList<TextBox> prevTextBoxes) {
