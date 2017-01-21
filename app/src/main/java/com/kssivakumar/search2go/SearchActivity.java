@@ -102,12 +102,10 @@ public class SearchActivity extends AppCompatActivity
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case LINE_SPLIT: {
-                Log.d(TAG, "LINE_SPLIT");
                 textBoxViewGroup.splitTextByLine();
                 break;
             }
             case WORD_SPLIT: {
-                Log.d(TAG, "WORD_SPLIT");
                 textBoxViewGroup.splitTextByWord();
                 break;
             }
