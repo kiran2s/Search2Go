@@ -89,7 +89,9 @@ public class MainActivity
     @Override
     protected void onPause() {
         super.onPause();
-        cameraSource.stop();
+        if (cameraSource != null) {
+            cameraSource.stop();
+        }
     }
 
     @Override
